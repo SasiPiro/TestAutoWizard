@@ -19,9 +19,9 @@ public class VehicleController {
         return ResponseEntity.ok(vehicleService.createVehicle(vehicleDTO, userId));
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<VehicleDTO> updateVehicle(@PathVariable Long id, @RequestBody VehicleDTO vehicleDTO, @RequestAttribute("userId") Long userId) {
-        return ResponseEntity.ok(vehicleService.updateVehicle(id, vehicleDTO, userId));
+    @GetMapping("/{id}")
+    public ResponseEntity<VehicleDTO> getVehicleById(@PathVariable Long id, @RequestAttribute("userId") Long userId) {
+        return ResponseEntity.ok(vehicleService.getVehicleById(id, userId));
     }
 
     @DeleteMapping("/{id}")
@@ -33,5 +33,13 @@ public class VehicleController {
     @GetMapping
     public ResponseEntity<List<VehicleDTO>> getVehicles(@RequestAttribute("userId") Long userId) {
         return ResponseEntity.ok(vehicleService.getVehiclesByUserId(userId));
+    }
+
+    @PatchMapping("/{id}/mileage")
+    public ResponseEntity<VehicleDTO> updateVehicleMileage(
+            @PathVariable Long id,
+            @RequestParam Long newMileage,
+            @RequestAttribute("userId") Long userId) {
+        return ResponseEntity.ok(vehicleService.updateVehicleMileage(id, newMileage, userId));
     }
 } 

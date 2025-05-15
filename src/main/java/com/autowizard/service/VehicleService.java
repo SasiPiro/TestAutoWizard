@@ -38,29 +38,22 @@ public class VehicleService {
         vehicle.setVin(vehicleDTO.getVin());
         vehicle.setMileage(vehicleDTO.getMileage());
         vehicle.setRegistrationYear(vehicleDTO.getRegistrationYear());
+        vehicle.setFuel(vehicleDTO.getFuel());
         vehicle.setOwner(user);
 
         Vehicle savedVehicle = vehicleRepository.save(vehicle);
         return convertToDTO(savedVehicle);
     }
 
-    @Transactional
-    public VehicleDTO updateVehicle(Long id, VehicleDTO vehicleDTO, Long userId) {
+    public VehicleDTO getVehicleById(Long id, Long userId) {
         Vehicle vehicle = vehicleRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Vehicle not found"));
 
         if (!vehicle.getOwner().getId().equals(userId)) {
-            throw new RuntimeException("Not authorized to update this vehicle");
+            throw new RuntimeException("Not authorized to view this vehicle");
         }
 
-        vehicle.setType(vehicleDTO.getType());
-        vehicle.setBrand(vehicleDTO.getBrand());
-        vehicle.setModel(vehicleDTO.getModel());
-        vehicle.setMileage(vehicleDTO.getMileage());
-        vehicle.setRegistrationYear(vehicleDTO.getRegistrationYear());
-
-        Vehicle updatedVehicle = vehicleRepository.save(vehicle);
-        return convertToDTO(updatedVehicle);
+        return convertToDTO(vehicle);
     }
 
     @Transactional
@@ -81,6 +74,24 @@ public class VehicleService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional
+    public VehicleDTO updateVehicleMileage(Long id, Long newMileage, Long userId) {
+        Vehicle vehicle = vehicleRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Vehicle not found"));
+
+        if (!vehicle.getOwner().getId().equals(userId)) {
+            throw new RuntimeException("Not authorized to update this vehicle");
+        } // tecnicamente non dovrebbe poter vedere altri veicoli oltre i propri
+
+        if (newMileage < vehicle.getMileage()) {
+            throw new RuntimeException("New mileage cannot be less than current mileage");
+        }
+
+        vehicle.setMileage(newMileage);
+        Vehicle updatedVehicle = vehicleRepository.save(vehicle);
+        return convertToDTO(updatedVehicle);
+    }
+
     private VehicleDTO convertToDTO(Vehicle vehicle) {
         VehicleDTO dto = new VehicleDTO();
         dto.setId(vehicle.getId());
@@ -91,6 +102,7 @@ public class VehicleService {
         dto.setVin(vehicle.getVin());
         dto.setMileage(vehicle.getMileage());
         dto.setRegistrationYear(vehicle.getRegistrationYear());
+        dto.setFuel(vehicle.getFuel());
         return dto;
     }
 } 

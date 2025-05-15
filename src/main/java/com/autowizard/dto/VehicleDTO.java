@@ -12,4 +12,5 @@ public class VehicleDTO {
     private String vin;
     private Long mileage;
     private Integer registrationYear;
+    private String fuel;
 } 

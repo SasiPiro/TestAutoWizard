@@ -6,6 +6,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
@@ -28,6 +29,12 @@ public class User implements UserDetails {
     private String lastName;
     private boolean enabled = true;
     private String resetPasswordToken;
+
+    @Column(name = "birthdate")
+    private LocalDate birthDate;
+
+    @Column(name = "avg_km_per_year")
+    private Long avgKmPerYear;
 
     @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL)
     private Set<Vehicle> vehicles = new HashSet<>();
