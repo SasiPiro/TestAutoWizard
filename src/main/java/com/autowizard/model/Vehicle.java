@@ -28,11 +28,17 @@ public class Vehicle {
     @Column(nullable = false, unique = true)
     private String vin;
 
+    @Column(nullable = false)
     private Long mileage;
+
+    @Column(nullable = false)
     private Integer registrationYear;
 
     @Column(nullable = false)
     private String fuel; // BENZINA, DIESEL, ELETTRICO, GPL, METANO, IBRIDO
+
+    @Column(name = "avg_km_per_year")
+    private Long avgKmPerYear;
 
     @ManyToOne
     @JoinColumn(name = "owner_id", nullable = false)
@@ -40,9 +46,6 @@ public class Vehicle {
 
     @OneToMany(mappedBy = "vehicle", cascade = CascadeType.ALL)
     private Set<Document> documents = new HashSet<>();
-
-    @OneToMany(mappedBy = "vehicle", cascade = CascadeType.ALL)
-    private Set<Reminder> reminders = new HashSet<>();
 
     @OneToMany(mappedBy = "vehicle", cascade = CascadeType.ALL)
     private Set<MaintenanceTask> maintenanceTasks = new HashSet<>();

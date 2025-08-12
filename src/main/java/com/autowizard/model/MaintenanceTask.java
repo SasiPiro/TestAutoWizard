@@ -36,7 +36,6 @@ public class MaintenanceTask {
     @Column(nullable = false)
     private Long scheduledMileage;
 
-    @Column(nullable = false)
     private Long completionMileage;
 
     @ManyToOne
@@ -45,6 +44,7 @@ public class MaintenanceTask {
 
     public enum TaskStatus {
         PENDING,
+        OVERDUE,
         COMPLETED
     }
 

@@ -18,7 +18,7 @@
 								"exec": [
 									"var jsonData = pm.response.json();",
 									"if (jsonData.token) {",
-									"    pm.environment.set('jwt_token', jsonData.token);",
+									"    pm.environment.set('token', jsonData.token);",
 									"}"
 								],
 								"type": "text/javascript"
@@ -54,7 +54,7 @@
 								"exec": [
 									"var jsonData = pm.response.json();",
 									"if (jsonData.token) {",
-									"    pm.environment.set('jwt_token', jsonData.token);",
+									"    pm.environment.set('token', jsonData.token);",
 									"}"
 								],
 								"type": "text/javascript"
@@ -141,7 +141,7 @@
 							},
 							{
 								"key": "Authorization",
-								"value": "Bearer {{jwt_token}}"
+								"value": "Bearer {{token}}"
 							}
 						],
 						"body": {
@@ -163,13 +163,13 @@
 						"header": [
 							{
 								"key": "Authorization",
-								"value": "Bearer {{jwt_token}}"
+								"value": "Bearer {{token}}"
 							}
 						],
 						"url": {
-							"raw": "{{base_url}}/api/vehicles/1",
+							"raw": "{{base_url}}/api/vehicles/{{vehicle_id}}",
 							"host": ["{{base_url}}"],
-							"path": ["api", "vehicles", "1"]
+							"path": ["api", "vehicles", "{{vehicle_id}}"]
 						},
 						"description": "Get details of a specific vehicle by ID"
 					}
@@ -181,13 +181,13 @@
 						"header": [
 							{
 								"key": "Authorization",
-								"value": "Bearer {{jwt_token}}"
+								"value": "Bearer {{token}}"
 							}
 						],
 						"url": {
-							"raw": "{{base_url}}/api/vehicles/1/mileage?newMileage=60000",
+							"raw": "{{base_url}}/api/vehicles/{{vehicle_id}}/mileage?newMileage=60000",
 							"host": ["{{base_url}}"],
-							"path": ["api", "vehicles", "1", "mileage"],
+							"path": ["api", "vehicles", "{{vehicle_id}}", "mileage"],
 							"query": [
 								{
 									"key": "newMileage",
@@ -205,13 +205,13 @@
 						"header": [
 							{
 								"key": "Authorization",
-								"value": "Bearer {{jwt_token}}"
+								"value": "Bearer {{token}}"
 							}
 						],
 						"url": {
-							"raw": "{{base_url}}/api/vehicles/1",
+							"raw": "{{base_url}}/api/vehicles/{{vehicle_id}}",
 							"host": ["{{base_url}}"],
-							"path": ["api", "vehicles", "1"]
+							"path": ["api", "vehicles", "{{vehicle_id}}"]
 						},
 						"description": "Delete a vehicle"
 					}
@@ -223,7 +223,7 @@
 						"header": [
 							{
 								"key": "Authorization",
-								"value": "Bearer {{jwt_token}}"
+								"value": "Bearer {{token}}"
 							}
 						],
 						"url": {
@@ -246,7 +246,7 @@
 						"header": [
 							{
 								"key": "Authorization",
-								"value": "Bearer {{jwt_token}}"
+								"value": "Bearer {{token}}"
 							}
 						],
 						"body": {
@@ -265,7 +265,7 @@
 								},
 								{
 									"key": "vehicleId",
-									"value": "1",
+									"value": "{{vehicle_id}}",
 									"type": "text"
 								},
 								{
@@ -291,13 +291,13 @@
 						"header": [
 							{
 								"key": "Authorization",
-								"value": "Bearer {{jwt_token}}"
+								"value": "Bearer {{token}}"
 							}
 						],
 						"url": {
-							"raw": "{{base_url}}/api/documents/1",
+							"raw": "{{base_url}}/api/documents/{{document_id}}",
 							"host": ["{{base_url}}"],
-							"path": ["api", "documents", "1"]
+							"path": ["api", "documents", "{{document_id}}"]
 						},
 						"description": "Delete a document by ID"
 					}
@@ -309,13 +309,13 @@
 						"header": [
 							{
 								"key": "Authorization",
-								"value": "Bearer {{jwt_token}}"
+								"value": "Bearer {{token}}"
 							}
 						],
 						"url": {
-							"raw": "{{base_url}}/api/documents/vehicle/1",
+							"raw": "{{base_url}}/api/documents/vehicle/{{vehicle_id}}",
 							"host": ["{{base_url}}"],
-							"path": ["api", "documents", "vehicle", "1"]
+							"path": ["api", "documents", "vehicle", "{{vehicle_id}}"]
 						},
 						"description": "Get all documents for a specific vehicle. Returns document metadata including type, upload date, and expiry date if applicable."
 					}
@@ -327,13 +327,13 @@
 						"header": [
 							{
 								"key": "Authorization",
-								"value": "Bearer {{jwt_token}}"
+								"value": "Bearer {{token}}"
 							}
 						],
 						"url": {
-							"raw": "{{base_url}}/api/documents/1",
+							"raw": "{{base_url}}/api/documents/{{document_id}}",
 							"host": ["{{base_url}}"],
-							"path": ["api", "documents", "1"]
+							"path": ["api", "documents", "{{document_id}}"]
 						},
 						"description": "Download the actual document file by document ID"
 					}
@@ -344,21 +344,232 @@
 			"name": "Maintenance Tasks",
 			"item": [
 				{
+					"name": "Create Task",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Cambio Olio\",\n    \"description\": \"Cambio olio motore e filtro\",\n    \"scheduledDate\": \"2024-04-01T10:00:00\",\n    \"priority\": \"MEDIUM\",\n    \"scheduledMileage\": 60000,\n    \"notes\": \"Usare olio sintetico 5W-30\",\n    \"vehicleId\": {{vehicle_id}}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/maintenance-tasks",
+							"host": ["{{base_url}}"],
+							"path": ["api", "maintenance-tasks"]
+						},
+						"description": "Create a new maintenance task for a vehicle. Required fields: title, description, scheduledDate, priority, scheduledMileage, vehicleId. Optional fields: notes."
+					}
+				},
+				{
 					"name": "Get Tasks by Vehicle",
 					"request": {
 						"method": "GET",
 						"header": [
 							{
 								"key": "Authorization",
-								"value": "Bearer {{jwt_token}}"
+								"value": "Bearer {{token}}"
 							}
 						],
 						"url": {
-							"raw": "{{base_url}}/api/maintenance-tasks/vehicle/1",
+							"raw": "{{base_url}}/api/maintenance-tasks/vehicle/{{vehicle_id}}",
 							"host": ["{{base_url}}"],
-							"path": ["api", "maintenance-tasks", "vehicle", "1"]
+							"path": ["api", "maintenance-tasks", "vehicle", "{{vehicle_id}}"]
 						},
 						"description": "Get all maintenance tasks for a specific vehicle"
+					}
+				},
+				{
+					"name": "Get Pending Tasks by User",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/maintenance-tasks/pending/user",
+							"host": ["{{base_url}}"],
+							"path": ["api", "maintenance-tasks", "pending", "user"]
+						},
+						"description": "Get all pending maintenance tasks for the current user"
+					}
+				},
+				{
+					"name": "Get Pending Tasks by Vehicle",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/maintenance-tasks/pending/vehicle/{{vehicle_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "maintenance-tasks", "pending", "vehicle", "{{vehicle_id}}"]
+						},
+						"description": "Get all pending maintenance tasks for a specific vehicle"
+					}
+				},
+				{
+					"name": "Get Overdue Tasks by User",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/maintenance-tasks/overdue/user",
+							"host": ["{{base_url}}"],
+							"path": ["api", "maintenance-tasks", "overdue", "user"]
+						},
+						"description": "Get all overdue maintenance tasks for the current user"
+					}
+				},
+				{
+					"name": "Get Overdue Tasks by Vehicle",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/maintenance-tasks/overdue/vehicle/{{vehicle_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "maintenance-tasks", "overdue", "vehicle", "{{vehicle_id}}"]
+						},
+						"description": "Get all overdue maintenance tasks for a specific vehicle"
+					}
+				},
+				{
+					"name": "Get Completed Tasks by User",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/maintenance-tasks/completed/user",
+							"host": ["{{base_url}}"],
+							"path": ["api", "maintenance-tasks", "completed", "user"]
+						},
+						"description": "Get all completed maintenance tasks for the current user"
+					}
+				},
+				{
+					"name": "Get Completed Tasks by Vehicle",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/maintenance-tasks/completed/vehicle/{{vehicle_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "maintenance-tasks", "completed", "vehicle", "{{vehicle_id}}"]
+						},
+						"description": "Get all completed maintenance tasks for a specific vehicle"
+					}
+				},
+				{
+					"name": "Get All Tasks by User",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/maintenance-tasks/user",
+							"host": ["{{base_url}}"],
+							"path": ["api", "maintenance-tasks", "user"]
+						},
+						"description": "Get all maintenance tasks for the current user"
+					}
+				}
+			]
+		},
+		{
+			"name": "Reminders",
+			"item": [
+				{
+					"name": "Mark as Notified",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reminders/{{reminder_id}}/notify",
+							"host": ["{{base_url}}"],
+							"path": ["api", "reminders", "{{reminder_id}}", "notify"]
+						},
+						"description": "Mark a reminder as notified"
+					}
+				},
+				{
+					"name": "Generate Pending Task Reminders",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reminders/generate/pending",
+							"host": ["{{base_url}}"],
+							"path": ["api", "reminders", "generate", "pending"]
+						},
+						"description": "Generate reminders for pending maintenance tasks"
+					}
+				},
+				{
+					"name": "Generate Overdue Task Reminders",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reminders/generate/overdue",
+							"host": ["{{base_url}}"],
+							"path": ["api", "reminders", "generate", "overdue"]
+						},
+						"description": "Generate reminders for overdue maintenance tasks"
 					}
 				}
 			]
@@ -369,18 +580,14 @@
 			"listen": "prerequest",
 			"script": {
 				"type": "text/javascript",
-				"exec": [
-					""
-				]
+				"exec": [""]
 			}
 		},
 		{
 			"listen": "test",
 			"script": {
 				"type": "text/javascript",
-				"exec": [
-					""
-				]
+				"exec": [""]
 			}
 		}
 	],
@@ -388,6 +595,26 @@
 		{
 			"key": "base_url",
 			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "token",
+			"value": "your-jwt-token",
+			"type": "string"
+		},
+		{
+			"key": "vehicle_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "document_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "reminder_id",
+			"value": "1",
 			"type": "string"
 		}
 	]

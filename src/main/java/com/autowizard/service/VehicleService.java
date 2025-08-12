@@ -1,17 +1,20 @@
 package com.autowizard.service;
 
 import com.autowizard.dto.VehicleDTO;
+import com.autowizard.exception.VehicleException;
 import com.autowizard.model.Vehicle;
 import com.autowizard.model.User;
 import com.autowizard.repository.VehicleRepository;
 import com.autowizard.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class VehicleService {
@@ -20,15 +23,16 @@ public class VehicleService {
 
     @Transactional
     public VehicleDTO createVehicle(VehicleDTO vehicleDTO, Long userId) {
+        log.debug("Creating vehicle for user: {}", userId);
         if (vehicleRepository.existsByLicensePlate(vehicleDTO.getLicensePlate())) {
-            throw new RuntimeException("Vehicle with this license plate already exists");
+            throw new VehicleException("Vehicle with this license plate already exists");
         }
         if (vehicleRepository.existsByVin(vehicleDTO.getVin())) {
-            throw new RuntimeException("Vehicle with this VIN already exists");
+            throw new VehicleException("Vehicle with this VIN already exists");
         }
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new VehicleException("User not found"));
 
         Vehicle vehicle = new Vehicle();
         vehicle.setType(vehicleDTO.getType());
@@ -45,12 +49,22 @@ public class VehicleService {
         return convertToDTO(savedVehicle);
     }
 
+    @Transactional(readOnly = true)
+    public List<VehicleDTO> getVehiclesByUserId(Long userId) {
+        log.debug("Fetching all vehicles for user: {}", userId);
+        return vehicleRepository.findByOwnerId(userId).stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
     public VehicleDTO getVehicleById(Long id, Long userId) {
+        log.debug("Fetching vehicle {} for user: {}", id, userId);
         Vehicle vehicle = vehicleRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Vehicle not found"));
+                .orElseThrow(() -> new VehicleException("Vehicle not found"));
 
         if (!vehicle.getOwner().getId().equals(userId)) {
-            throw new RuntimeException("Not authorized to view this vehicle");
+            throw new VehicleException("Vehicle does not belong to user");
         }
 
         return convertToDTO(vehicle);
@@ -58,33 +72,29 @@ public class VehicleService {
 
     @Transactional
     public void deleteVehicle(Long id, Long userId) {
+        log.debug("Deleting vehicle {} for user: {}", id, userId);
         Vehicle vehicle = vehicleRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Vehicle not found"));
+                .orElseThrow(() -> new VehicleException("Vehicle not found"));
 
         if (!vehicle.getOwner().getId().equals(userId)) {
-            throw new RuntimeException("Not authorized to delete this vehicle");
+            throw new VehicleException("Vehicle does not belong to user");
         }
 
         vehicleRepository.delete(vehicle);
     }
 
-    public List<VehicleDTO> getVehiclesByUserId(Long userId) {
-        return vehicleRepository.findByOwnerId(userId).stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
-
     @Transactional
     public VehicleDTO updateVehicleMileage(Long id, Long newMileage, Long userId) {
+        log.debug("Updating mileage for vehicle {} to {} for user: {}", id, newMileage, userId);
         Vehicle vehicle = vehicleRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Vehicle not found"));
+                .orElseThrow(() -> new VehicleException("Vehicle not found"));
 
         if (!vehicle.getOwner().getId().equals(userId)) {
-            throw new RuntimeException("Not authorized to update this vehicle");
+            throw new VehicleException("Not authorized to update this vehicle");
         } // tecnicamente non dovrebbe poter vedere altri veicoli oltre i propri
 
         if (newMileage < vehicle.getMileage()) {
-            throw new RuntimeException("New mileage cannot be less than current mileage");
+            throw new VehicleException("New mileage cannot be less than current mileage");
         }
 
         vehicle.setMileage(newMileage);

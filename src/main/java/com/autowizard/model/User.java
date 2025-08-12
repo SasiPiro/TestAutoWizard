@@ -33,9 +33,6 @@ public class User implements UserDetails {
     @Column(name = "birthdate")
     private LocalDate birthDate;
 
-    @Column(name = "avg_km_per_year")
-    private Long avgKmPerYear;
-
     @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL)
     private Set<Vehicle> vehicles = new HashSet<>();
 

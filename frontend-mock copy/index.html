@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Gestione Veicoli</title>
+    <style>
+        :root {
+            --primary-color: #007AFF;
+            --background-color: #F5F6FA;
+            --surface-color: #FFFFFF;
+            --text-color: #1D2129;
+            --text-light-color: #606770;
+            --border-color: #E1E4E8;
+            --sidebar-bg: #1C2536;
+            --sidebar-icon-color: #A6B0C3;
+            --sidebar-icon-active-color: #FFFFFF;
+            --ai-chat-bg: #F0F2F5;
+            --ai-bubble-bg: #E4E6EB;
+            --user-bubble-bg: #0084FF;
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --border-radius: 8px;
+            --box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* --- Sidebar a Icone --- */
+        .sidebar {
+            width: 80px;
+            background-color: var(--sidebar-bg);
+            padding: 20px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .sidebar-logo {
+            color: white;
+            font-weight: bold;
+            font-size: 24px;
+            margin-bottom: 40px;
+        }
+
+        .nav-item {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        .nav-link {
+            display: block;
+            padding: 15px;
+            border-radius: var(--border-radius);
+            color: var(--sidebar-icon-color);
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
+        .nav-link.active,
+        .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: var(--sidebar-icon-active-color);
+        }
+
+        .nav-link svg {
+            width: 24px;
+            height: 24px;
+            stroke-width: 2;
+        }
+
+        .nav-tooltip {
+            visibility: hidden;
+            background-color: var(--text-color);
+            color: white;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px 10px;
+            position: absolute;
+            z-index: 1;
+            left: 100%;
+            margin-left: 15px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            white-space: nowrap;
+        }
+
+        .nav-item:hover .nav-tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        /* --- Contenuto Principale --- */
+        .main-content {
+            flex-grow: 1;
+            padding: 30px;
+            overflow-y: auto;
+        }
+
+        .page { display: none; }
+        .page.active { display: block; }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .page-header h2 {
+            font-size: 28px;
+            margin: 0;
+        }
+
+        /* --- Garage View --- */
+        #garage-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 25px;
+        }
+
+        .vehicle-card {
+            background-color: var(--surface-color);
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .vehicle-card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .vehicle-card-icon {
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 50%;
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+        }
+
+        .vehicle-card-icon svg {
+            width: 28px;
+            height: 28px;
+        }
+
+        .vehicle-card-title h3 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .vehicle-card-title p {
+            margin: 0;
+            color: var(--text-light-color);
+        }
+        
+        .vehicle-card-info {
+             margin-bottom: 20px;
+        }
+        
+        .vehicle-card-actions {
+            margin-top: auto;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        .btn-primary:hover { background-color: #0056b3; }
+
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+        .btn-danger:hover { background-color: #c82333; }
+        
+        .btn-secondary {
+            background-color: var(--border-color);
+            color: var(--text-color);
+        }
+        .btn-secondary:hover { background-color: #d3d9df; }
+
+        /* --- AI Chat Panel --- */
+        .ai-chat-panel {
+            width: 350px;
+            flex-shrink: 0;
+            background-color: var(--surface-color);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .ai-chat-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+            flex-shrink: 0;
+        }
+        .ai-chat-header h3 { margin: 0; font-size: 18px; }
+        .ai-chat-header p { margin: 5px 0 0; color: var(--text-light-color); font-size: 14px; }
+        
+        .ai-chat-messages {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: var(--ai-chat-bg);
+        }
+
+        .chat-bubble {
+            max-width: 85%;
+            padding: 12px;
+            border-radius: 18px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .ai-bubble {
+            background-color: var(--ai-bubble-bg);
+            color: var(--text-color);
+            border-bottom-left-radius: 4px;
+            align-self: flex-start;
+        }
+        
+        .ai-chat-input {
+            padding: 20px;
+            border-top: 1px solid var(--border-color);
+            background-color: var(--surface-color);
+        }
+        
+        .ai-chat-input input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 18px;
+            background-color: var(--ai-chat-bg);
+            box-sizing: border-box;
+        }
+        
+        /* Stili riutilizzati (liste, modali, ecc.) */
+        .card-list {
+            background-color: var(--surface-color);
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 10px;
+            margin-bottom: 20px;
+        }
+        .list-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid var(--border-color); }
+        .list-item:last-child { border-bottom: none; }
+        .list-item-content { display: flex; flex-direction: column; }
+        .list-item-title { font-size: 16px; font-weight: 600; }
+        .list-item-subtitle { font-size: 13px; color: var(--text-light-color); }
+        .list-item-actions button { margin-left: 10px; padding: 6px 10px; font-size: 12px; }
+        
+        /* Modal Styles */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); justify-content: center; align-items: center; }
+        .modal-content { background-color: var(--surface-color); margin: auto; padding: 30px; border-radius: var(--border-radius); box-shadow: 0 5px 15px rgba(0,0,0,0.3); width: 90%; max-width: 500px; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-header h3 { margin: 0; font-size: 22px; }
+        .close-button { color: var(--text-light-color); font-size: 28px; font-weight: bold; cursor: pointer; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 8px; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: var(--border-radius); font-size: 16px; box-sizing: border-box; }
+        .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;}
+
+    </style>
+</head>
+<body>
+
+    <!-- SIDEBAR A ICONE -->
+    <nav class="sidebar">
+        <div class="sidebar-logo">G</div>
+        <div class="nav-item">
+            <a href="#" class="nav-link active" data-page="garage">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14 20H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2M18 18h.01M18 15h.01M22 15h.01M22 18h.01M18 12h.01M22 12h.01M7 16H5M11 16H9M5 4l1.5 6h6L14 4"/></svg>
+                <span class="nav-tooltip">Garage</span>
+            </a>
+        </div>
+         <div class="nav-item">
+            <a href="#" class="nav-link" data-page="manutenzione">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                <span class="nav-tooltip">Manutenzione</span>
+            </a>
+        </div>
+         <div class="nav-item">
+            <a href="#" class="nav-link" data-page="promemoria">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M15.73 3.34a10 10 0 1 1-13.46 2.59M10.5 20.5a10 10 0 0 1 .5-4.5M10 21.5a10 10 0 0 1-4.5-.5M3.34 8.27a10 10 0 0 1 2.59-4.93M20.5 13.5a10 10 0 0 1-4.5.5"/><circle cx="12" cy="12" r="4"/></svg>
+                <span class="nav-tooltip">Promemoria</span>
+            </a>
+        </div>
+         <div class="nav-item">
+            <a href="#" class="nav-link" data-page="documenti">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+                <span class="nav-tooltip">Documenti</span>
+            </a>
+        </div>
+    </nav>
+    
+    <!-- CONTENUTO PRINCIPALE -->
+    <main class="main-content">
+        <!-- SEZIONE GARAGE -->
+        <div id="garage" class="page active">
+            <div class="page-header">
+                <h2>Il Mio Garage</h2>
+                <button class="btn btn-primary" onclick="showVeicoloModal()">Aggiungi Veicolo</button>
+            </div>
+            <div id="garage-grid">
+                <!-- Le card dei veicoli verranno inserite qui da JS -->
+            </div>
+        </div>
+
+        <!-- SEZIONE MANUTENZIONE -->
+        <div id="manutenzione" class="page">
+             <div class="page-header">
+                <h2>Storico Manutenzioni</h2>
+                 <button class="btn btn-primary" onclick="showManutenzioneModal()">Aggiungi Manutenzione</button>
+            </div>
+            <div class="form-group">
+                <label for="manutenzione-veicolo-select">Filtra per veicolo:</label>
+                <select id="manutenzione-veicolo-select" onchange="renderManutenzioni()"></select>
+            </div>
+            <div id="manutenzione-list" class="card-list"></div>
+        </div>
+        
+        <!-- Altre sezioni (promemoria, documenti) come 'manutenzione' -->
+         <div id="promemoria" class="page">
+             <div class="page-header">
+                <h2>Promemoria</h2>
+                 <button class="btn btn-primary" onclick="showPromemoriaModal()">Crea Promemoria</button>
+            </div>
+            <div id="promemoria-list" class="card-list"></div>
+        </div>
+
+        <div id="documenti" class="page">
+            <div class="page-header">
+                <h2>Documenti Veicoli</h2>
+                 <button class="btn btn-primary" onclick="showDocumentoModal()">Carica Documento</button>
+            </div>
+             <div class="form-group">
+                <label for="documento-veicolo-select">Filtra per veicolo:</label>
+                <select id="documento-veicolo-select" onchange="renderDocumenti()"></select>
+            </div>
+            <div id="documenti-list" class="card-list"></div>
+        </div>
+    </main>
+
+    <!-- CHAT ASSISTENTE AI -->
+    <aside class="ai-chat-panel">
+        <div class="ai-chat-header">
+            <h3>Assistente Virtuale</h3>
+            <p>I tuoi suggerimenti personalizzati</p>
+        </div>
+        <div class="ai-chat-messages" id="ai-chat-messages">
+             <!-- I messaggi AI verranno inseriti qui -->
+        </div>
+        <div class="ai-chat-input">
+            <input type="text" placeholder="Chiedi qualcosa al tuo assistente..." disabled>
+        </div>
+    </aside>
+    
+    <!-- MODALS (Stessi dell'altra versione, non inclusi qui per brevità ma il JS li gestisce) -->
+    <!-- ... Copia e incolla le sezioni dei Modal dal codice precedente qui ... -->
+    <!-- MODAL VEICOLO -->
+    <div id="veicolo-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="veicolo-modal-title">Aggiungi Nuovo Veicolo</h3>
+                <span class="close-button" onclick="closeVeicoloModal()">&times;</span>
+            </div>
+            <form id="veicolo-form" onsubmit="handleVeicoloSubmit(event)">
+                <input type="hidden" id="veicolo-id">
+                <div class="form-group">
+                    <label for="marca">Marca</label>
+                    <input type="text" id="marca" required>
+                </div>
+                <div class="form-group">
+                    <label for="modello">Modello</label>
+                    <input type="text" id="modello" required>
+                </div>
+                <div class="form-group">
+                    <label for="anno">Anno</label>
+                    <input type="number" id="anno" required>
+                </div>
+                <div class="form-group">
+                    <label for="targa">Targa</label>
+                    <input type="text" id="targa" required>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeVeicoloModal()">Annulla</button>
+                    <button type="submit" class="btn btn-primary">Salva</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- MODAL MANUTENZIONE -->
+    <div id="manutenzione-modal" class="modal">
+        <div class="modal-content">
+            <!-- Contenuto modal manutenzione dal codice precedente -->
+        </div>
+    </div>
+    
+    <!-- MODAL PROMEMORIA -->
+    <div id="promemoria-modal" class="modal">
+        <div class="modal-content">
+            <!-- Contenuto modal promemoria dal codice precedente -->
+        </div>
+    </div>
+    
+     <!-- MODAL DOCUMENTO -->
+    <div id="documento-modal" class="modal">
+        <div class="modal-content">
+            <!-- Contenuto modal documento dal codice precedente -->
+        </div>
+    </div>
+
+
+<script>
+// --- DATABASE MOCK (Uguale al precedente) ---
+let veicoliDB = [
+    { id: 1, marca: 'Fiat', modello: 'Panda', anno: 2021, targa: 'GA123BC' },
+    { id: 2, marca: 'Audi', modello: 'A3', anno: 2022, targa: 'FE456CD' },
+];
+let manutenzioniDB = [ { id: 1, veicoloId: 1, tipo: 'Tagliando completo', data: '2025-07-15', costo: 350, note: 'Sostituiti filtri e olio motore.' }, { id: 2, veicoloId: 2, tipo: 'Sostituzione pastiglie freni', data: '2025-08-20', costo: 280, note: '' },];
+let promemoriaDB = [ { id: 1, veicoloId: 1, tipo: 'Scadenza Bollo', data: '2026-01-31' }, { id: 2, veicoloId: 2, tipo: 'Scadenza Assicurazione', data: '2025-11-22' },];
+let documentiDB = [ { id: 1, veicoloId: 1, tipo: 'Libretto di Circolazione', fileName: 'libretto_panda.pdf' }, { id: 2, veicoloId: 2, tipo: 'Contratto Assicurazione', fileName: 'assicurazione_a3.pdf' },];
+let nextVeicoloId = 3, nextManutenzioneId = 3, nextPromemoriaId = 3, nextDocumentoId = 3;
+
+// --- GESTIONE NAVIGAZIONE ---
+const navLinks = document.querySelectorAll('.nav-link');
+const pages = document.querySelectorAll('.page');
+
+navLinks.forEach(link => {
+    link.addEventListener('click', (e) => {
+        e.preventDefault();
+        navLinks.forEach(l => l.classList.remove('active'));
+        pages.forEach(p => p.classList.remove('active'));
+        link.classList.add('active');
+        document.getElementById(link.dataset.page).classList.add('active');
+    });
+});
+
+// --- NUOVA FUNZIONE RENDER PER IL GARAGE ---
+function renderVeicoli() {
+    const grid = document.getElementById('garage-grid');
+    grid.innerHTML = '';
+    if (veicoliDB.length === 0) {
+        grid.innerHTML = '<p>Nessun veicolo aggiunto. Clicca su "Aggiungi Veicolo" per iniziare.</p>';
+        return;
+    }
+    veicoliDB.forEach(v => {
+        const card = document.createElement('div');
+        card.className = 'vehicle-card';
+        card.innerHTML = `
+            <div class="vehicle-card-header">
+                <div class="vehicle-card-icon">
+                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-truck"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+                </div>
+                <div class="vehicle-card-title">
+                    <h3>${v.marca} ${v.modello}</h3>
+                    <p>Targa: ${v.targa}</p>
+                </div>
+            </div>
+            <div class="vehicle-card-info">
+                Anno: <strong>${v.anno}</strong>
+            </div>
+            <div class="vehicle-card-actions">
+                <button class="btn btn-secondary" onclick="editVeicolo(${v.id})">Modifica</button>
+                <button class="btn btn-danger" onclick="deleteVeicolo(${v.id})">Elimina</button>
+            </div>
+        `;
+        grid.appendChild(card);
+    });
+    updateVeicoloSelects();
+}
+
+// --- NUOVA FUNZIONE PER POPOLARE LA CHAT AI ---
+function renderAIChat() {
+    const chatContainer = document.getElementById('ai-chat-messages');
+    chatContainer.innerHTML = `
+        <div class="chat-bubble ai-bubble">
+            Ciao! Sono il tuo assistente. Ecco alcuni suggerimenti per te oggi.
+        </div>
+        <div class="chat-bubble ai-bubble">
+            <strong>Suggerimento Proattivo:</strong> I pneumatici della tua Audi A3 non vengono cambiati da molto. Ti consiglio di programmare un controllo.
+        </div>
+         <div class="chat-bubble ai-bubble">
+            <strong>Previsione Costi:</strong> Basandoci sui tuoi dati, prevediamo che il prossimo anno spenderai circa € 850 in manutenzione per la tua Fiat Panda.
+        </div>
+        <div class="chat-bubble ai-bubble">
+            <strong>Scadenze:</strong> Ricorda che l'assicurazione per la tua Audi A3 scade il 22/11/2025.
+        </div>
+    `;
+}
+
+// --- LE ALTRE FUNZIONI (renderManutenzioni, modals, etc.) sono identiche ---
+// --- al codice precedente. Includo solo la logica di base per far funzionare questo snippet ---
+function updateVeicoloSelects() {
+    // Funzione per aggiornare i menu a tendina
+    const selects = [
+        document.getElementById('manutenzione-veicolo-select'),
+        // ... altri select
+    ];
+     selects.forEach(select => {
+        if (!select) return;
+        const currentValue = select.value;
+        select.innerHTML = '';
+        veicoliDB.forEach(v => {
+            const option = document.createElement('option');
+            option.value = v.id;
+            option.textContent = `${v.marca} ${v.modello} (${v.targa})`;
+            select.appendChild(option);
+        });
+        if(currentValue) select.value = currentValue;
+    });
+}
+function renderManutenzioni() { /* Logica uguale al precedente */ }
+function renderPromemoria() { /* Logica uguale al precedente */ }
+function renderDocumenti() { /* Logica uguale al precedente */ }
+
+// Funzioni Modali (mostra/nascondi/gestisci submit)
+const veicoloModal = document.getElementById('veicolo-modal');
+const veicoloForm = document.getElementById('veicolo-form');
+const veicoloModalTitle = document.getElementById('veicolo-modal-title');
+const veicoloIdInput = document.getElementById('veicolo-id');
+
+function showVeicoloModal() {
+    veicoloForm.reset();
+    veicoloIdInput.value = '';
+    veicoloModalTitle.textContent = 'Aggiungi Nuovo Veicolo';
+    veicoloModal.style.display = 'flex';
+}
+
+function closeVeicoloModal() {
+    veicoloModal.style.display = 'none';
+}
+
+function handleVeicoloSubmit(event) {
+    event.preventDefault();
+    const veicolo = {
+        marca: document.getElementById('marca').value,
+        modello: document.getElementById('modello').value,
+        anno: parseInt(document.getElementById('anno').value),
+        targa: document.getElementById('targa').value.toUpperCase(),
+    };
+    if (veicoloIdInput.value) {
+        const index = veicoliDB.findIndex(v => v.id == veicoloIdInput.value);
+        veicoliDB[index] = { ...veicoliDB[index], ...veicolo };
+    } else {
+        veicolo.id = nextVeicoloId++;
+        veicoliDB.push(veicolo);
+    }
+    renderVeicoli();
+    closeVeicoloModal();
+}
+
+function editVeicolo(id) {
+    const veicolo = veicoliDB.find(v => v.id === id);
+    veicoloIdInput.value = veicolo.id;
+    document.getElementById('marca').value = veicolo.marca;
+    document.getElementById('modello').value = veicolo.modello;
+    document.getElementById('anno').value = veicolo.anno;
+    document.getElementById('targa').value = veicolo.targa;
+    veicoloModalTitle.textContent = 'Modifica Veicolo';
+    veicoloModal.style.display = 'flex';
+}
+
+function deleteVeicolo(id) {
+    if (confirm('Sei sicuro di voler eliminare questo veicolo?')) {
+        veicoliDB = veicoliDB.filter(v => v.id !== id);
+        renderVeicoli();
+        // Aggiungere qui il render delle altre sezioni per aggiornarle
+    }
+}
+// ... Aggiungere qui il resto delle funzioni JS per gli altri modal (manutenzione, etc.)
+// dal codice precedente per avere la piena funzionalità.
+
+
+// --- INIZIALIZZAZIONE ---
+window.onload = () => {
+    renderVeicoli();
+    renderAIChat();
+    // Chiamare qui gli altri render per popolare le sezioni nascoste
+    updateVeicoloSelects();
+    renderManutenzioni(); 
+    renderPromemoria();
+    renderDocumenti();
+};
+
+</script>
+</body>
+</html>

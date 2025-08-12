@@ -1,7 +1,7 @@
 package com.autowizard.config;
 
 import com.autowizard.service.JwtService;
-import com.autowizard.model.User;
+import com.autowizard.security.UserPrincipal;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -67,9 +67,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         SecurityContextHolder.getContext().setAuthentication(authToken);
                         log.debug("Authentication set in SecurityContext for user: {}", userEmail);
                         
-                        // Set userId as request attribute
-                        User user = (User) userDetails;
-                        request.setAttribute("userId", user.getId());
+                        // Set userId as request attribute using UserPrincipal
+                        if (userDetails instanceof UserPrincipal) {
+                            UserPrincipal userPrincipal = (UserPrincipal) userDetails;
+                            request.setAttribute("userId", userPrincipal.getId());
+                            log.debug("Set userId attribute: {}", userPrincipal.getId());
+                        }
                     } else {
                         log.debug("Token is invalid for user: {}", userEmail);
                         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
@@ -85,9 +88,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
             filterChain.doFilter(request, response);
         } catch (Exception e) {
-            log.error("Error processing JWT authentication: {}", e.getMessage());
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().write("Error processing authentication");
+            log.error("Error in JWT filter: {}", e.getMessage(), e);
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            response.getWriter().write("Internal server error");
         }
     }
 } 

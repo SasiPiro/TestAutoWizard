@@ -43,6 +43,74 @@ AutoWizard is a Spring Boot-based backend application for managing multiple vehi
 - Basic AI query functionality (currently mocked)
 - Endpoint: POST /api/ai/query
 
+## Sistema di Notifiche e Reminder
+
+Il sistema di notifiche è progettato per gestire i reminder relativi alle manutenzioni dei veicoli. I reminder sono associati agli utenti e possono contenere multiple task di manutenzione.
+
+### Struttura dei Reminder
+
+- **Associazione con Utenti**: Ogni reminder è associato a un utente specifico
+- **Task Multiple**: Un reminder può contenere più task di manutenzione
+- **Tipi di Reminder**:
+  - `PENDING_TASKS`: Notifica per task pendenti
+  - `OVERDUE_TASKS`: Notifica per task scadute
+  - `MAINTENANCE_DUE`: Notifica per manutenzioni programmate
+
+### Endpoint API
+
+#### Creazione Reminder
+```http
+POST /api/reminders
+Content-Type: application/json
+Authorization: Bearer {token}
+
+{
+    "title": "Manutenzioni Pendenti",
+    "message": "Hai 3 manutenzioni da eseguire",
+    "notificationDate": "2024-03-20T10:00:00",
+    "type": "PENDING_TASKS",
+    "taskIds": [1, 2, 3]
+}
+```
+
+#### Ottenere Reminder Pendenti
+```http
+GET /api/reminders/pending
+Authorization: Bearer {token}
+```
+
+#### Ottenere Reminder Scaduti
+```http
+GET /api/reminders/overdue
+Authorization: Bearer {token}
+```
+
+#### Marcare come Notificato
+```http
+PUT /api/reminders/{reminderId}/notify
+Authorization: Bearer {token}
+```
+
+#### Generare Reminder di Manutenzione
+```http
+POST /api/reminders/generate
+Authorization: Bearer {token}
+```
+
+### Sicurezza
+
+- Tutti gli endpoint richiedono autenticazione JWT
+- Gli utenti possono accedere solo ai propri reminder
+- Le task incluse nei reminder devono appartenere a veicoli dell'utente
+
+### Gestione degli Errori
+
+Il sistema gestisce i seguenti casi di errore:
+- Reminder non trovato
+- Task non trovata
+- Autorizzazione non valida
+- Errori di validazione dei dati
+
 ## Technical Stack
 
 - Java 17
