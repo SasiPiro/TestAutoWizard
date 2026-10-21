@@ -34,7 +34,6 @@ public class ReminderService {
             if (!reminder.getUser().getId().equals(userId)) {
                 throw new ReminderException("Not authorized to update this reminder");
             }
-
             reminder.setNotified(true);
             reminderRepository.save(reminder);
         } catch (Exception e) {
@@ -63,7 +62,6 @@ public class ReminderService {
                 reminder.setUser(user);
                 reminderRepository.save(reminder);
             }
-
             // Recupera e ordina i reminder generati per l'utente
             return reminderRepository.findByUserIdAndTypeAndNotifiedFalseOrderByNotificationDateDesc(userId, Reminder.ReminderType.PENDING_TASKS)
                     .stream()
@@ -95,7 +93,6 @@ public class ReminderService {
                 reminder.setUser(user);
                 reminderRepository.save(reminder);
             }
-
             // Recupera e ordina i reminder generati per l'utente
             return reminderRepository.findByUserIdAndTypeAndNotifiedFalseOrderByNotificationDateDesc(userId, Reminder.ReminderType.OVERDUE_TASKS)
                     .stream()

@@ -16,7 +16,9 @@ public class Document {
     private String name;
 
     @Column(nullable = false)
-    private String type; // LIBRETTO, ASSICURAZIONE, BOLLO, etc.
+    @Enumerated(EnumType.STRING)
+    private DocumentType type; // LIBRETTO DI CIRCOLAZIONE, ASSICURAZIONE, BOLLO, FATTURA MANUTENZIONE , LIBRETTO MANUTENZIONE PREGRESSA etc.
+    
 
     @Column(nullable = false)
     private String contentType;
@@ -35,4 +37,12 @@ public class Document {
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
-} 
+
+    public enum DocumentType {
+        LIBRETTO_DI_CIRCOLAZIONE,
+        ASSICURAZIONE,
+        BOLLO,
+        FATTURA_MANUTENZIONE,
+        LIBRETTO_MANUTENZIONE_PREGRESSA
+    }
+}

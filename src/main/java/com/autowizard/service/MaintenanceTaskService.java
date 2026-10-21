@@ -38,6 +38,7 @@ public class MaintenanceTaskService {
         task.setStatus(MaintenanceTask.TaskStatus.PENDING);
         task.setPriority(taskDTO.getPriority());
         task.setScheduledMileage(taskDTO.getScheduledMileage());
+        task.setEstimatedCost(taskDTO.getEstimatedCost());
         task.setNotes(taskDTO.getNotes());
         task.setVehicle(vehicle);
 
@@ -154,10 +155,14 @@ public class MaintenanceTaskService {
         dto.setPriority(task.getPriority());
         dto.setCompletionDate(task.getCompletionDate());
         dto.setNotes(task.getNotes());
-        dto.setCost(task.getCost());
+        dto.setEstimatedCost(task.getEstimatedCost());
+        dto.setActualCost(task.getActualCost());
         dto.setScheduledMileage(task.getScheduledMileage());
         dto.setCompletionMileage(task.getCompletionMileage());
         dto.setVehicleId(task.getVehicle().getId());
         return dto;
     }
+
+    //TODO. funzione che setta actualCost (pop-up che si apre quando la task passa a COMPELETED) (utente completa la task)
+    //TODO. funzioni per ottenere la delle task sia globale che per periodo di tempo
 } 

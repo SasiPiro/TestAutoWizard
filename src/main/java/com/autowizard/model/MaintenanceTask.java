@@ -3,7 +3,7 @@ package com.autowizard.model;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDateTime;
-
+//TODO FARE JOB 00:01 PER AGGIORNARE STATUS TASK
 @Data
 @Entity
 @Table(name = "maintenance_tasks")
@@ -31,7 +31,8 @@ public class MaintenanceTask {
 
     private LocalDateTime completionDate;
     private String notes;
-    private Double cost;
+    private Double estimatedCost;
+    private Double actualCost;
 
     @Column(nullable = false)
     private Long scheduledMileage;

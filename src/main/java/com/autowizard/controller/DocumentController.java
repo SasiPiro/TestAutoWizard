@@ -1,6 +1,8 @@
 package com.autowizard.controller;
 
+import com.autowizard.dto.DocumentContentDTO;
 import com.autowizard.dto.DocumentDTO;
+import com.autowizard.model.Document;
 import com.autowizard.security.CurrentUser;
 import com.autowizard.security.UserPrincipal;
 import com.autowizard.service.DocumentService;
@@ -24,10 +26,10 @@ public class DocumentController {
     @PostMapping("/upload")
     public ResponseEntity<DocumentDTO> uploadDocument(
             @RequestParam("file") MultipartFile file,
-            @RequestParam("type") String type,
+            @RequestParam("type") Document.DocumentType type,
             @RequestParam("vehicleId") Long vehicleId,
             @CurrentUser UserPrincipal currentUser) {
-        log.debug("Uploading document for user: {}", currentUser.getId());
+        log.debug("Uploading document for user: {}", currentUser);
         return ResponseEntity.ok(documentService.uploadDocument(file, type, vehicleId, currentUser.getId()));
     }
 
@@ -53,14 +55,13 @@ public class DocumentController {
             @PathVariable Long id,
             @CurrentUser UserPrincipal currentUser) {
         log.debug("Downloading document {} for user: {}", id, currentUser.getId());
-        DocumentDTO document = documentService.getDocument(id, currentUser.getId());
+        DocumentContentDTO document = documentService.getDocument(id, currentUser.getId());
         
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.parseMediaType(document.getContentType()));
         headers.setContentDispositionFormData("attachment", document.getName());
-        
         return ResponseEntity.ok()
                 .headers(headers)
                 .body(document.getContent());
     }
-} 
+}

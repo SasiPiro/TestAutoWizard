@@ -14,7 +14,8 @@ public class MaintenanceTaskDTO {
     private MaintenanceTask.TaskPriority priority;
     private LocalDateTime completionDate;
     private String notes;
-    private Double cost;
+    private Double estimatedCost;
+    private Double actualCost;
     private Long scheduledMileage;
     private Long completionMileage;
     private Long vehicleId;

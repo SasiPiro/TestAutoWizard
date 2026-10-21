@@ -1,10 +1,13 @@
 package com.autowizard.service;
 
+import com.autowizard.dto.DocumentContentDTO;
 import com.autowizard.dto.DocumentDTO;
 import com.autowizard.exception.DocumentException;
 import com.autowizard.model.Document;
+import com.autowizard.model.User;
 import com.autowizard.model.Vehicle;
 import com.autowizard.repository.DocumentRepository;
+import com.autowizard.repository.UserRepository;
 import com.autowizard.repository.VehicleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,9 +26,9 @@ import java.util.stream.Collectors;
 public class DocumentService {
     private final DocumentRepository documentRepository;
     private final VehicleRepository vehicleRepository;
-
+    private final UserRepository userRepository;
     @Transactional
-    public DocumentDTO uploadDocument(MultipartFile file, String type, Long vehicleId, Long userId) {
+    public DocumentDTO uploadDocument(MultipartFile file, Document.DocumentType type, Long vehicleId, Long userId) {
         log.debug("Uploading document for vehicle {} and user: {}", vehicleId, userId);
         Vehicle vehicle = vehicleRepository.findById(vehicleId)
                 .orElseThrow(() -> new DocumentException("Vehicle not found"));
@@ -33,6 +36,9 @@ public class DocumentService {
         if (!vehicle.getOwner().getId().equals(userId)) {
             throw new DocumentException("Vehicle does not belong to user");
         }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new DocumentException("User not found"));
 
         try {
             Document document = new Document();
@@ -42,6 +48,7 @@ public class DocumentService {
             document.setContentType(file.getContentType());
             document.setVehicle(vehicle);
             document.setUploadDate(LocalDateTime.now());
+            document.setUser(user);
 
             return convertToDTO(documentRepository.save(document));
         } catch (IOException e) {
@@ -50,7 +57,7 @@ public class DocumentService {
     }
 
     @Transactional(readOnly = true)
-    public DocumentDTO getDocument(Long id, Long userId) {
+    public DocumentContentDTO getDocument(Long id, Long userId) {
         log.debug("Fetching document {} for user: {}", id, userId);
         Document document = documentRepository.findById(id)
                 .orElseThrow(() -> new DocumentException("Document not found"));
@@ -59,7 +66,7 @@ public class DocumentService {
             throw new DocumentException("Document does not belong to user");
         }
 
-        return convertToDTO(document);
+        return convertToContentDTO(document);
     }
 
     @Transactional(readOnly = true)
@@ -95,9 +102,17 @@ public class DocumentService {
         dto.setId(document.getId());
         dto.setName(document.getName());
         dto.setType(document.getType());
-        dto.setContent(document.getContent());
         dto.setContentType(document.getContentType());
         dto.setUploadDate(document.getUploadDate());
+        dto.setVehicleId(document.getVehicle().getId());
         return dto;
     }
-} 
+
+    private DocumentContentDTO convertToContentDTO(Document document) {
+        DocumentContentDTO dto = new DocumentContentDTO();
+        dto.setName(document.getName());
+        dto.setContent(document.getContent());
+        dto.setContentType(document.getContentType());
+        return dto;
+    }
+}

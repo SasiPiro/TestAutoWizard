@@ -30,7 +30,9 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     private static final String ERROR_MESSAGE_PREFIX = "ERR_";
-    private static final boolean INCLUDE_STACK_TRACE = false; // Set to false in production
+    private static final boolean INCLUDE_STACK_TRACE = true; // Set to false in production
+
+    //TODO SISTEMARE LE EXCEPTION SPECIALMENTE IN TASK SERVICE
 
     private ErrorResponse createErrorResponse(HttpStatus status, String message, WebRequest request, String errorCode) {
         String path = ((ServletWebRequest) request).getRequest().getRequestURI();

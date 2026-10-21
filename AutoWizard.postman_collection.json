@@ -258,8 +258,7 @@
 									"src": "/path/to/your/file.pdf"
 								},
 								{
-									"key": "type",
-									"value": "LIBRETTO",
+									"key": "type", "value": "LIBRETTO_DI_CIRCOLAZIONE",
 									"type": "text",
 									"description": "Document type (LIBRETTO, ASSICURAZIONE, BOLLO, REVISIONE, ALTRO)"
 								},

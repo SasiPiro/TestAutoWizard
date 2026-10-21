@@ -1,207 +1,203 @@
 # AutoWizard - Vehicle Management System
 
-AutoWizard is a Spring Boot-based backend application for managing multiple vehicles, their documents, and maintenance schedules.
+A complete, modern vehicle management mobile application built with React Native, TypeScript, and Redux Toolkit, integrated with a Spring Boot backend.
 
-## Features
+## 🚀 Features
 
-### 1. User Authentication
-- User registration and login with email/password
-- OAuth2 integration with Google
-- Password recovery functionality
+- **Vehicle Management** - Add, edit, and manage your vehicle fleet
+- **Maintenance Tracking** - Schedule and track maintenance tasks
+- **Smart Notifications** - Get reminders for upcoming maintenance
+- **User Authentication** - Secure login and registration system
+- **Modern UI/UX** - Clean, responsive design with smooth animations
+- **Real-time Sync** - Integrated with Spring Boot backend API
+- **Cross-platform** - Works on both iOS and Android
 
-### 2. Vehicle Management
-- Add, modify, and remove vehicles
-- Required fields:
-  - Type
-  - Brand
-  - Model
-  - License Plate
-  - VIN
-  - Mileage
-  - Registration Year
+## 🛠 Tech Stack
 
-### 3. Document Management
-- Upload and manage vehicle documents (PDF/Photos)
-- Supported document types:
-  - Vehicle Registration
-  - Insurance
-  - Tax Documents
-- Document viewing per vehicle
+- **Frontend**: React Native 0.72.6
+- **Language**: TypeScript 4.8.4
+- **State Management**: Redux Toolkit
+- **Navigation**: React Navigation 6.x
+- **Styling**: Styled Components
+- **HTTP Client**: Axios
+- **Storage**: AsyncStorage
+- **Icons**: React Native Vector Icons
+- **Backend**: Spring Boot 3.2.3
 
-### 4. Reminders and Notifications
-- Manual reminder creation
-- Push notifications and email alerts (7 days before due date)
-- Upcoming deadlines section in dashboard
+## 📱 Screens
 
-### 5. Dashboard
-- Vehicle status overview
-- Updated mileage tracking
-- Recent documents and notifications
-- Traffic light system for approaching deadlines
+### Authentication
+- **Login Screen** - User authentication with email/password
+- **Register Screen** - New user registration
 
-### 6. AI Integration
-- Basic AI query functionality (currently mocked)
-- Endpoint: POST /api/ai/query
+### Main App
+- **Home Dashboard** - Overview of vehicles and maintenance tasks
+- **Vehicle List** - View and manage all vehicles
+- **Vehicle Details** - Detailed vehicle information and actions
+- **Add Vehicle** - Register new vehicles to the fleet
+- **Maintenance Tasks** - View and manage maintenance tasks
+- **Add Maintenance Task** - Schedule new maintenance tasks
+- **Task Details** - Detailed task information and status updates
+- **Profile** - User profile and app settings
 
-## Sistema di Notifiche e Reminder
+## 🏗 Project Structure
 
-Il sistema di notifiche è progettato per gestire i reminder relativi alle manutenzioni dei veicoli. I reminder sono associati agli utenti e possono contenere multiple task di manutenzione.
-
-### Struttura dei Reminder
-
-- **Associazione con Utenti**: Ogni reminder è associato a un utente specifico
-- **Task Multiple**: Un reminder può contenere più task di manutenzione
-- **Tipi di Reminder**:
-  - `PENDING_TASKS`: Notifica per task pendenti
-  - `OVERDUE_TASKS`: Notifica per task scadute
-  - `MAINTENANCE_DUE`: Notifica per manutenzioni programmate
-
-### Endpoint API
-
-#### Creazione Reminder
-```http
-POST /api/reminders
-Content-Type: application/json
-Authorization: Bearer {token}
-
-{
-    "title": "Manutenzioni Pendenti",
-    "message": "Hai 3 manutenzioni da eseguire",
-    "notificationDate": "2024-03-20T10:00:00",
-    "type": "PENDING_TASKS",
-    "taskIds": [1, 2, 3]
-}
+```
+src/
+├── api/                 # API client and service functions
+│   ├── apiClient.ts     # Axios configuration
+│   ├── authApi.ts       # Authentication API calls
+│   ├── vehicleApi.ts    # Vehicle management API calls
+│   └── maintenanceApi.ts # Maintenance tasks API calls
+├── components/          # Reusable UI components
+│   └── navigation/      # Navigation components
+├── navigation/          # Navigation configuration
+│   └── AppNavigator.tsx # Main navigation setup
+├── screens/             # App screens
+│   ├── auth/           # Authentication screens
+│   └── main/           # Main app screens
+├── state/              # Redux state management
+│   ├── store.ts        # Redux store configuration
+│   └── slices/         # Redux slices
+│       ├── authSlice.ts
+│       ├── vehicleSlice.ts
+│       └── maintenanceSlice.ts
+├── styles/             # Global styles and theme
+│   └── theme.ts        # App theme configuration
+└── utils/              # Utility functions
 ```
 
-#### Ottenere Reminder Pendenti
-```http
-GET /api/reminders/pending
-Authorization: Bearer {token}
-```
-
-#### Ottenere Reminder Scaduti
-```http
-GET /api/reminders/overdue
-Authorization: Bearer {token}
-```
-
-#### Marcare come Notificato
-```http
-PUT /api/reminders/{reminderId}/notify
-Authorization: Bearer {token}
-```
-
-#### Generare Reminder di Manutenzione
-```http
-POST /api/reminders/generate
-Authorization: Bearer {token}
-```
-
-### Sicurezza
-
-- Tutti gli endpoint richiedono autenticazione JWT
-- Gli utenti possono accedere solo ai propri reminder
-- Le task incluse nei reminder devono appartenere a veicoli dell'utente
-
-### Gestione degli Errori
-
-Il sistema gestisce i seguenti casi di errore:
-- Reminder non trovato
-- Task non trovata
-- Autorizzazione non valida
-- Errori di validazione dei dati
-
-## Technical Stack
-
-- Java 17
-- Spring Boot 3.2.3
-- Spring Security
-- Spring Data JPA
-- H2 Database (for development)
-- JWT Authentication
-- Spring Mail
-
-## Getting Started
+## 🚀 Quick Start
 
 ### Prerequisites
-- Java 17 or higher
-- Maven
-- IDE (IntelliJ IDEA recommended)
+
+- **Node.js** (v18.15.0 or higher)
+- **npm** (v9.5.0 or higher)
+- **React Native CLI** (globally installed)
+- **Android Studio** (for Android development)
+- **Xcode** (for iOS development, macOS only)
+- **Java Development Kit (JDK)** 11 or higher
+- **Android SDK** (API level 33 or higher)
 
 ### Installation
 
-1. Clone the repository
-2. Configure application.properties:
-   - Update email settings
-   - Set JWT secret
-   - Configure database settings if needed
+1. **Clone the repository:**
+   ```bash
+   git clone <repository-url>
+   cd AutoWizardApp
+   ```
 
-3. Build the project:
-```bash
-mvn clean install
+2. **Install dependencies:**
+   ```bash
+   npm install --legacy-peer-deps
+   ```
+
+3. **Start the backend server:**
+   ```bash
+   # Navigate to backend directory and run Spring Boot app
+   cd ../backend
+   ./mvnw spring-boot:run
+   ```
+
+4. **Start the React Native app:**
+   ```bash
+   # For Android
+   npm run android
+   
+   # For iOS
+   npm run ios
+   ```
+
+## 🔧 Configuration
+
+### Backend API Configuration
+
+The app is configured to connect to a Spring Boot backend running on `http://localhost:8080`. Update the API base URL in `src/api/apiClient.ts` if needed:
+
+```typescript
+const API_BASE_URL = 'http://localhost:8080';
 ```
 
-4. Run the application:
+### Environment Setup
+
+For production deployment, consider using environment variables for API endpoints and other configuration.
+
+## 📊 State Management
+
+The app uses Redux Toolkit for state management with the following slices:
+
+- **Auth Slice** - User authentication state
+- **Vehicle Slice** - Vehicle data and operations
+- **Maintenance Slice** - Maintenance tasks and scheduling
+
+## 🎨 Theme System
+
+The app uses a comprehensive theme system with:
+- **Colors** - Primary, secondary, success, warning, error colors
+- **Typography** - Consistent font sizes and weights
+- **Spacing** - Standardized spacing values
+- **Shadows** - Elevation and shadow effects
+
+## 🔐 Security
+
+- **JWT Authentication** - Secure token-based authentication
+- **Token Storage** - Secure token storage using AsyncStorage
+- **API Security** - Automatic token injection in API requests
+- **Error Handling** - Comprehensive error handling and user feedback
+
+## 📱 Platform Support
+
+- **iOS** - iOS 12.0 and later
+- **Android** - Android 5.0 (API level 21) and later
+
+## 🧪 Testing
+
+Run the test suite:
 ```bash
-mvn spring-boot:run
+npm test
 ```
 
-### API Documentation
+## 📦 Building for Production
 
-#### Authentication Endpoints
-- POST /api/auth/register - Register new user
-- POST /api/auth/login - User login
-- POST /api/auth/forgot-password - Request password reset
-- POST /api/auth/reset-password - Reset password
-
-#### Vehicle Endpoints
-- GET /api/vehicles - List all vehicles
-- POST /api/vehicles - Add new vehicle
-- PUT /api/vehicles/{id} - Update vehicle
-- DELETE /api/vehicles/{id} - Remove vehicle
-- GET /api/vehicles/{id} - Get vehicle details
-
-#### Document Endpoints
-- POST /api/documents/upload - Upload document
-- GET /api/documents/vehicle/{vehicleId} - Get vehicle documents
-- DELETE /api/documents/{id} - Delete document
-
-#### Reminder Endpoints
-- POST /api/reminders - Create reminder
-- GET /api/reminders/upcoming - Get upcoming reminders
-- PUT /api/reminders/{id} - Update reminder
-- DELETE /api/reminders/{id} - Delete reminder
-
-#### AI Endpoints
-- POST /api/ai/query - Query AI service (currently mocked)
-
-## Security
-
-- JWT-based authentication
-- Password encryption
-- Role-based access control
-- Secure file upload handling
-
-## Development
-
-### Database
-The application uses H2 database in development mode. Access the H2 console at:
-http://localhost:8080/h2-console
-
-### Testing
-Run tests with:
+### Android
 ```bash
-mvn test
+cd android
+./gradlew assembleRelease
 ```
 
-## Contributing
+### iOS
+```bash
+cd ios
+xcodebuild -workspace AutoWizardApp.xcworkspace -scheme AutoWizardApp -configuration Release
+```
+
+## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-## License
+## 📄 License
 
-This project is licensed under the MIT License. 
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🆘 Support
+
+For support and questions:
+- Create an issue in the repository
+- Contact the development team
+- Check the documentation
+
+## 🔄 Version History
+
+- **v1.0.0** - Initial release with core vehicle management features
+- Integrated with Spring Boot backend
+- Complete authentication system
+- Vehicle and maintenance management
+- Modern UI/UX design
+
+---
+
+**AutoWizard** - Keep your vehicles in top condition with smart maintenance tracking! 🚗🔧 
