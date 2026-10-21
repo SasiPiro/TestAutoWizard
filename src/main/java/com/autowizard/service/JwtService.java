@@ -1,135 +1,119 @@
 package com.autowizard.service;
 
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.Keys;
-import io.jsonwebtoken.security.SignatureException;
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Date;
-import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.Map;
-import java.util.function.Function;
+import java.util.Optional;
+import java.util.Set;
 
-@Slf4j
+/**
+ * Issues and verifies the HMAC-signed JWTs used by the API.
+ *
+ * <p>
+ * With HMAC the same secret signs and verifies: whoever knows it can create a valid
+ * token for any user. For this reason the secret has no default value and the
+ * application refuses to start when it is missing, too short, or known to have been
+ * exposed. A crash on deploy is better than an API that accepts forged tokens.
+ * </p>
+ */
 @Service
 public class JwtService {
 
-    @Value("${jwt.secret}")
-    private String secretKey;
+    /** HS256 requires a key of at least 256 bits. */
+    static final int MIN_SECRET_BYTES = 32;
 
-    @Value("${jwt.expiration}")
-    private long jwtExpiration;
+    /**
+     * SHA-256 of secrets that were committed to the repository and must never be used
+     * again. Only the hash is stored, so this list does not leak them a second time.
+     */
+    static final Set<String> COMPROMISED_SECRET_SHA256 = Set.of(
+            "3354cfcf65c7b2e6840ea6f880aede239750cb1d063950c4e8fd9fbf9ec73a32");
+
+    private final Key signingKey;
+    private final long jwtExpiration;
+
+    @Autowired
+    public JwtService(@Value("${jwt.secret:}") String secret,
+                      @Value("${jwt.expiration:86400000}") long jwtExpiration) {
+        this(secret, jwtExpiration, COMPROMISED_SECRET_SHA256);
+    }
+
+    JwtService(String secret, long jwtExpiration, Set<String> compromisedSha256) {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException("jwt.secret is not set: provide it with the JWT_SECRET environment "
+                    + "variable (or run with the 'dev' profile for local development)");
+        }
+        byte[] bytes = secret.getBytes(StandardCharsets.UTF_8);
+        if (bytes.length < MIN_SECRET_BYTES) {
+            throw new IllegalStateException("jwt.secret must be at least " + MIN_SECRET_BYTES + " bytes long");
+        }
+        if (compromisedSha256.contains(sha256(bytes))) {
+            throw new IllegalStateException("jwt.secret has been exposed (it was committed to the repository): "
+                    + "generate a new one");
+        }
+        this.signingKey = Keys.hmacShaKeyFor(bytes);   // built once, not on every call
+        this.jwtExpiration = jwtExpiration;
+    }
 
     public String generateToken(String email) {
-        log.debug("Generating token for email: {}", email);
-        return generateToken(new HashMap<>(), email);
+        return generateToken(Map.of(), email);
     }
 
     public String generateToken(Map<String, Object> extraClaims, String email) {
-        log.debug("Generating token with extra claims for email: {}", email);
+        long now = System.currentTimeMillis();
         return Jwts.builder()
                 .setClaims(extraClaims)
                 .setSubject(email)
-                .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + jwtExpiration))
-                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .setIssuedAt(new Date(now))
+                .setExpiration(new Date(now + jwtExpiration))
+                .signWith(signingKey, SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    public boolean isTokenValid(String token) {
+    /**
+     * Verifies signature and expiration once and returns the claims, or empty if the
+     * token is invalid for any reason (bad signature, expired, malformed).
+     */
+    public Optional<Claims> parse(String token) {
         try {
-            boolean isValid = !isTokenExpired(token);
-            log.debug("Token validation result: {}", isValid);
-            return isValid;
-        } catch (ExpiredJwtException e) {
-            log.error("Token is expired: {}", e.getMessage());
-            return false;
-        } catch (UnsupportedJwtException e) {
-            log.error("Token is unsupported: {}", e.getMessage());
-            return false;
-        } catch (MalformedJwtException e) {
-            log.error("Token is malformed: {}", e.getMessage());
-            return false;
-        } catch (SignatureException e) {
-            log.error("Token signature is invalid: {}", e.getMessage());
-            return false;
-        } catch (Exception e) {
-            log.error("Error validating token: {}", e.getMessage());
-            return false;
-        }
-    }
-
-    public String extractEmail(String token) {
-        try {
-            String email = extractClaim(token, Claims::getSubject);
-            log.debug("Extracted email from token: {}", email);
-            return email;
-        } catch (Exception e) {
-            log.error("Error extracting email from token: {}", e.getMessage());
-            return null;
-        }
-    }
-
-    private boolean isTokenExpired(String token) {
-        try {
-            boolean isExpired = extractExpiration(token).before(new Date());
-            log.debug("Token expiration check: {}", isExpired);
-            return isExpired;
-        } catch (Exception e) {
-            log.error("Error checking token expiration: {}", e.getMessage());
-            return true;
-        }
-    }
-
-    private Date extractExpiration(String token) {
-        return extractClaim(token, Claims::getExpiration);
-    }
-
-    private <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
-        final Claims claims = extractAllClaims(token);
-        return claimsResolver.apply(claims);
-    }
-
-    private Claims extractAllClaims(String token) {
-        try {
-            return Jwts.parserBuilder()
-                    .setSigningKey(getSigningKey())
+            return Optional.of(Jwts.parserBuilder()
+                    .setSigningKey(signingKey)
                     .build()
                     .parseClaimsJws(token)
-                    .getBody();
-        } catch (ExpiredJwtException e) {
-            log.error("Token is expired: {}", e.getMessage());
-            throw e;
-        } catch (UnsupportedJwtException e) {
-            log.error("Token is unsupported: {}", e.getMessage());
-            throw e;
-        } catch (MalformedJwtException e) {
-            log.error("Token is malformed: {}", e.getMessage());
-            throw e;
-        } catch (SignatureException e) {
-            log.error("Token signature is invalid: {}", e.getMessage());
-            throw e;
-        } catch (Exception e) {
-            log.error("Error extracting claims from token: {}", e.getMessage());
-            throw e;
+                    .getBody());
+        } catch (JwtException | IllegalArgumentException e) {
+            return Optional.empty();
         }
     }
 
-    private Key getSigningKey() {
+    /** Kept for the current filter; removed when the filter uses {@link #parse(String)}. */
+    public String extractEmail(String token) {
+        return parse(token).map(Claims::getSubject).orElse(null);
+    }
+
+    /** Kept for the current filter; removed when the filter uses {@link #parse(String)}. */
+    public boolean isTokenValid(String token) {
+        return parse(token).isPresent();
+    }
+
+    static String sha256(byte[] value) {
         try {
-            byte[] keyBytes = secretKey.getBytes();
-            return Keys.hmacShaKeyFor(keyBytes);
-        } catch (Exception e) {
-            log.error("Error generating signing key: {}", e.getMessage());
-            throw e;
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
         }
     }
-} 
+}
