@@ -99,16 +99,6 @@ public class JwtService {
         }
     }
 
-    /** Kept for the current filter; removed when the filter uses {@link #parse(String)}. */
-    public String extractEmail(String token) {
-        return parse(token).map(Claims::getSubject).orElse(null);
-    }
-
-    /** Kept for the current filter; removed when the filter uses {@link #parse(String)}. */
-    public boolean isTokenValid(String token) {
-        return parse(token).isPresent();
-    }
-
     static String sha256(byte[] value) {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value));
