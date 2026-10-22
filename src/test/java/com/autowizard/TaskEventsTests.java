@@ -14,7 +14,13 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -53,6 +59,47 @@ class TaskEventsTests {
 
         await().atMost(WAIT).until(() -> remindedTasks(token).equals(List.of(stillDue)));
         await().atMost(WAIT).until(() -> completedPublications(done) == 1);
+    }
+
+    @Test
+    void listenersForTasksOfTheSameReminderCanRunConcurrently() throws Exception {
+        // Completions in quick succession: their listeners run at the same time on one reminder
+        TestApi api = new TestApi(mvc);
+        String token = api.newUser();
+        long vehicleId = api.createVehicle(token, 10_000);
+        List<Long> tasks = new ArrayList<>();
+        for (int day = 2; day <= 7; day++) {
+            tasks.add(api.createTask(token, vehicleId, "2031-05-0" + day + "T10:00:00", 90_000));
+        }
+        reminderService.refreshReminders(LocalDateTime.of(2031, 5, 1, 0, 1));
+        long userId = jdbc.queryForObject("SELECT owner_id FROM vehicles WHERE id = ?", Long.class, vehicleId);
+
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService pool = Executors.newFixedThreadPool(tasks.size());
+        try {
+            List<Future<?>> runs = tasks.stream()
+                    .<Future<?>>map(taskId -> pool.submit(() -> {
+                        start.await();
+                        reminderService.forgetCompletedTask(taskId, userId);
+                        return null;
+                    }))
+                    .toList();
+            start.countDown();
+            for (Future<?> run : runs) {
+                run.get(WAIT.toSeconds(), TimeUnit.SECONDS);
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+
+        // Every task removed, and the reminder left empty is gone
+        assertThat(openReminderCount(token)).isZero();
+    }
+
+    private int openReminderCount(String token) throws Exception {
+        String body = mvc.perform(get("/api/reminders").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        return JsonPath.<List<?>>read(body, "$").size();
     }
 
     private List<Long> remindedTasks(String token) throws Exception {

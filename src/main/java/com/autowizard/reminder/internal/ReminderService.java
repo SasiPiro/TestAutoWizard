@@ -59,7 +59,7 @@ public class ReminderService {
     /** Removes a completed task from the user's open reminders; a reminder left empty is deleted. */
     @Transactional
     public void forgetCompletedTask(Long taskId, Long userId) {
-        for (Reminder reminder : reminderRepository.findByUserIdAndNotifiedFalseOrderByNotificationDateDesc(userId)) {
+        for (Reminder reminder : reminderRepository.findOpenByUserIdForUpdate(userId)) {
             if (!reminder.getTasks().removeIf(task -> task.getId().equals(taskId))) {
                 continue;
             }

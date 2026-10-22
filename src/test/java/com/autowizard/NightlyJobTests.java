@@ -18,10 +18,12 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doThrow;
@@ -149,6 +151,8 @@ class NightlyJobTests {
                     .contentType(MediaType.APPLICATION_JSON).content("{\"completionMileage\":60000}"))
                     .andExpect(status().isOk());
         }
+        // Completing publishes MaintenanceTaskCompleted: let its listener finish first
+        await().atMost(Duration.ofSeconds(10)).until(() -> List.of(first, second).stream().allMatch(this::completionHandled));
         job.run();
         assertThat(openReminders("OVERDUE_TASKS")).isEmpty();
     }
@@ -197,6 +201,13 @@ class NightlyJobTests {
 
     private List<Long> remindedTasks(long reminderId) {
         return jdbc.queryForList("SELECT task_id FROM reminder_tasks WHERE reminder_id = ?", Long.class, reminderId);
+    }
+
+    private boolean completionHandled(long taskId) {
+        return jdbc.queryForObject("""
+                SELECT COUNT(*) FROM event_publication
+                 WHERE serialized_event LIKE ? AND completion_date IS NOT NULL""",
+                Integer.class, "%\"taskId\":" + taskId + ",%") == 1;
     }
 
     private String taskStatus(long taskId) {
