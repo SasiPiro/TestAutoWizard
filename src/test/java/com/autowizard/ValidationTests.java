@@ -8,6 +8,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.Locale;
+
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -32,6 +34,21 @@ class ValidationTests {
                 .andExpect(jsonPath("$.errors.email").exists())
                 .andExpect(jsonPath("$.errors.password").exists())
                 .andExpect(jsonPath("$.token").doesNotExist());
+    }
+
+    @Test
+    void messagesAreInEnglishWhateverTheServerOrClientLocale() throws Exception {
+        Locale serverLocale = Locale.getDefault();
+        Locale.setDefault(Locale.ITALY);
+        try {
+            mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
+                            .header("Accept-Language", "it-IT")
+                            .content("{\"email\":\"\",\"password\":\"secret-password\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.email").value("must not be blank"));
+        } finally {
+            Locale.setDefault(serverLocale);
+        }
     }
 
     @Test
