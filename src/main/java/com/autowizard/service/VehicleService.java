@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -74,7 +75,8 @@ public class VehicleService {
         log.debug("Deleting vehicle {} for user: {}", id, userId);
         Vehicle vehicle = vehicleAccess.requireOwned(id, userId);
 
-        vehicleRepository.delete(vehicle);
+        // Soft delete: tasks, documents and reminders keep pointing to an existing row
+        vehicle.setDeletedAt(LocalDateTime.now());
     }
 
     @Transactional

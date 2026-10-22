@@ -2,12 +2,21 @@ package com.autowizard.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import org.hibernate.annotations.SQLRestriction;
+
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * A vehicle is never deleted from the database: deleting it sets {@code deletedAt}, so its
+ * maintenance history, documents and reminders stay consistent. Every query on vehicles
+ * ignores deleted rows ({@link SQLRestriction}).
+ */
 @Data
 @Entity
 @Table(name = "vehicles")
+@SQLRestriction("deleted_at IS NULL")
 public class Vehicle {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -22,10 +31,12 @@ public class Vehicle {
     @Column(nullable = false)
     private String model;
 
-    @Column(nullable = false, unique = true)
+    // Unique among vehicles that are not deleted: a deleted vehicle must not block registering
+    // the same plate or VIN again (e.g. a car sold to another user). Checked by VehicleService.
+    @Column(nullable = false)
     private String licensePlate;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String vin;
 
     @Column(nullable = false)
@@ -37,6 +48,9 @@ public class Vehicle {
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private FuelType fuel;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     @Column(name = "avg_km_per_year")
     private Long avgKmPerYear;
