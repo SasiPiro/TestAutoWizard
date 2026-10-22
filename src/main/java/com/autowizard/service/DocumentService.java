@@ -8,7 +8,6 @@ import com.autowizard.model.User;
 import com.autowizard.model.Vehicle;
 import com.autowizard.repository.DocumentRepository;
 import com.autowizard.repository.UserRepository;
-import com.autowizard.repository.VehicleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,17 +24,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class DocumentService {
     private final DocumentRepository documentRepository;
-    private final VehicleRepository vehicleRepository;
+    private final VehicleAccess vehicleAccess;
     private final UserRepository userRepository;
     @Transactional
     public DocumentDTO uploadDocument(MultipartFile file, Document.DocumentType type, Long vehicleId, Long userId) {
         log.debug("Uploading document for vehicle {} and user: {}", vehicleId, userId);
-        Vehicle vehicle = vehicleRepository.findById(vehicleId)
-                .orElseThrow(() -> new DocumentException("Vehicle not found"));
-
-        if (!vehicle.getOwner().getId().equals(userId)) {
-            throw new DocumentException("Vehicle does not belong to user");
-        }
+        Vehicle vehicle = vehicleAccess.requireOwned(vehicleId, userId);
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new DocumentException("User not found"));
@@ -72,12 +66,7 @@ public class DocumentService {
     @Transactional(readOnly = true)
     public List<DocumentDTO> getDocumentsByVehicleId(Long vehicleId, Long userId) {
         log.debug("Fetching documents for vehicle {} and user: {}", vehicleId, userId);
-        Vehicle vehicle = vehicleRepository.findById(vehicleId)
-                .orElseThrow(() -> new DocumentException("Vehicle not found"));
-
-        if (!vehicle.getOwner().getId().equals(userId)) {
-            throw new DocumentException("Vehicle does not belong to user");
-        }
+        vehicleAccess.requireOwned(vehicleId, userId);
 
         return documentRepository.findByVehicleId(vehicleId).stream()
                 .map(this::convertToDTO)

@@ -1,7 +1,6 @@
 package com.autowizard.controller;
 
 import com.autowizard.dto.MaintenanceTaskDTO;
-import com.autowizard.exception.MaintenanceTaskException;
 import com.autowizard.security.CurrentUser;
 import com.autowizard.security.UserPrincipal;
 import com.autowizard.service.MaintenanceTaskService;
@@ -24,13 +23,7 @@ public class MaintenanceTaskController {
             @RequestBody MaintenanceTaskDTO taskDTO,
             @CurrentUser UserPrincipal currentUser) {
         log.debug("Creating maintenance task for user: {}", currentUser.getId());
-        try {
-            return ResponseEntity.ok(maintenanceTaskService.createTask(taskDTO, currentUser.getId()));
-        } catch (MaintenanceTaskException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new MaintenanceTaskException("Error creating task: " + e.getMessage(), e);
-        }
+        return ResponseEntity.ok(maintenanceTaskService.createTask(taskDTO, currentUser.getId()));
     }
 
     @GetMapping("/vehicle/{vehicleId}")
@@ -45,13 +38,7 @@ public class MaintenanceTaskController {
     public ResponseEntity<List<MaintenanceTaskDTO>> getPendingTasksByUser(
             @CurrentUser UserPrincipal currentUser) {
         log.debug("Getting pending tasks for user: {}", currentUser.getId());
-        try {
-            return ResponseEntity.ok(maintenanceTaskService.getPendingTasksByUser(currentUser.getId()));
-        } catch (MaintenanceTaskException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new MaintenanceTaskException("Error getting pending tasks: " + e.getMessage(), e);
-        }
+        return ResponseEntity.ok(maintenanceTaskService.getPendingTasksByUser(currentUser.getId()));
     }
 
     @GetMapping("/pending/vehicle/{vehicleId}")
@@ -59,26 +46,14 @@ public class MaintenanceTaskController {
             @PathVariable Long vehicleId,
             @CurrentUser UserPrincipal currentUser) {
         log.debug("Getting pending tasks for vehicle: {} and user: {}", vehicleId, currentUser.getId());
-        try {
-            return ResponseEntity.ok(maintenanceTaskService.getPendingTasksByVehicle(vehicleId));
-        } catch (MaintenanceTaskException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new MaintenanceTaskException("Error getting pending tasks: " + e.getMessage(), e);
-        }
+        return ResponseEntity.ok(maintenanceTaskService.getPendingTasksByVehicle(vehicleId, currentUser.getId()));
     }
 
     @GetMapping("/overdue/user")
     public ResponseEntity<List<MaintenanceTaskDTO>> getOverdueTasksByUser(
             @CurrentUser UserPrincipal currentUser) {
         log.debug("Getting overdue tasks for user: {}", currentUser.getId());
-        try {
-            return ResponseEntity.ok(maintenanceTaskService.getOverdueTasksByUser(currentUser.getId()));
-        } catch (MaintenanceTaskException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new MaintenanceTaskException("Error getting overdue tasks: " + e.getMessage(), e);
-        }
+        return ResponseEntity.ok(maintenanceTaskService.getOverdueTasksByUser(currentUser.getId()));
     }
 
     @GetMapping("/overdue/vehicle/{vehicleId}")
@@ -86,26 +61,14 @@ public class MaintenanceTaskController {
             @PathVariable Long vehicleId,
             @CurrentUser UserPrincipal currentUser) {
         log.debug("Getting overdue tasks for vehicle: {} and user: {}", vehicleId, currentUser.getId());
-        try {
-            return ResponseEntity.ok(maintenanceTaskService.getOverdueTasksByVehicle(vehicleId));
-        } catch (MaintenanceTaskException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new MaintenanceTaskException("Error getting overdue tasks: " + e.getMessage(), e);
-        }
+        return ResponseEntity.ok(maintenanceTaskService.getOverdueTasksByVehicle(vehicleId, currentUser.getId()));
     }
 
     @GetMapping("/completed/user")
     public ResponseEntity<List<MaintenanceTaskDTO>> getCompletedTasksByUser(
             @CurrentUser UserPrincipal currentUser) {
         log.debug("Getting completed tasks for user: {}", currentUser.getId());
-        try {
-            return ResponseEntity.ok(maintenanceTaskService.getCompletedTasksByUser(currentUser.getId()));
-        } catch (MaintenanceTaskException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new MaintenanceTaskException("Error getting completed tasks: " + e.getMessage(), e);
-        }
+        return ResponseEntity.ok(maintenanceTaskService.getCompletedTasksByUser(currentUser.getId()));
     }
 
     @GetMapping("/completed/vehicle/{vehicleId}")
@@ -113,25 +76,13 @@ public class MaintenanceTaskController {
             @PathVariable Long vehicleId,
             @CurrentUser UserPrincipal currentUser) {
         log.debug("Getting completed tasks for vehicle: {} and user: {}", vehicleId, currentUser.getId());
-        try {
-            return ResponseEntity.ok(maintenanceTaskService.getCompletedTasksByVehicle(vehicleId));
-        } catch (MaintenanceTaskException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new MaintenanceTaskException("Error getting completed tasks: " + e.getMessage(), e);
-        }
+        return ResponseEntity.ok(maintenanceTaskService.getCompletedTasksByVehicle(vehicleId, currentUser.getId()));
     }
 
     @GetMapping("/user")
     public ResponseEntity<List<MaintenanceTaskDTO>> getAllTasksByUser(
             @CurrentUser UserPrincipal currentUser) {
         log.debug("Getting all tasks for user: {}", currentUser.getId());
-        try {
-            return ResponseEntity.ok(maintenanceTaskService.getAllTasksByUser(currentUser.getId()));
-        } catch (MaintenanceTaskException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new MaintenanceTaskException("Error getting all tasks: " + e.getMessage(), e);
-        }
+        return ResponseEntity.ok(maintenanceTaskService.getAllTasksByUser(currentUser.getId()));
     }
 } 

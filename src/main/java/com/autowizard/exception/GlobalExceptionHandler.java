@@ -88,6 +88,13 @@ public class GlobalExceptionHandler {
             .body(createErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request, ERROR_MESSAGE_PREFIX + "DOCUMENT"));
     }
 
+    @ExceptionHandler(NotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNotFoundException(NotFoundException ex, WebRequest request) {
+        return ResponseEntity
+            .status(HttpStatus.NOT_FOUND)
+            .body(createErrorResponse(HttpStatus.NOT_FOUND, ex.getMessage(), request, ERROR_MESSAGE_PREFIX + "NOT_FOUND"));
+    }
+
     @ExceptionHandler(EntityNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleEntityNotFoundException(EntityNotFoundException ex, WebRequest request) {
         return ResponseEntity

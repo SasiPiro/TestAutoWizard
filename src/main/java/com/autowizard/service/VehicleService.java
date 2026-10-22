@@ -20,6 +20,7 @@ import java.util.stream.Collectors;
 public class VehicleService {
     private final VehicleRepository vehicleRepository;
     private final UserRepository userRepository;
+    private final VehicleAccess vehicleAccess;
 
     @Transactional
     public VehicleDTO createVehicle(VehicleDTO vehicleDTO, Long userId) {
@@ -60,12 +61,7 @@ public class VehicleService {
     @Transactional(readOnly = true)
     public VehicleDTO getVehicleById(Long id, Long userId) {
         log.debug("Fetching vehicle {} for user: {}", id, userId);
-        Vehicle vehicle = vehicleRepository.findById(id)
-                .orElseThrow(() -> new VehicleException("Vehicle not found"));
-
-        if (!vehicle.getOwner().getId().equals(userId)) {
-            throw new VehicleException("Vehicle does not belong to user");
-        }
+        Vehicle vehicle = vehicleAccess.requireOwned(id, userId);
 
         return convertToDTO(vehicle);
     }
@@ -73,12 +69,7 @@ public class VehicleService {
     @Transactional
     public void deleteVehicle(Long id, Long userId) {
         log.debug("Deleting vehicle {} for user: {}", id, userId);
-        Vehicle vehicle = vehicleRepository.findById(id)
-                .orElseThrow(() -> new VehicleException("Vehicle not found"));
-
-        if (!vehicle.getOwner().getId().equals(userId)) {
-            throw new VehicleException("Vehicle does not belong to user");
-        }
+        Vehicle vehicle = vehicleAccess.requireOwned(id, userId);
 
         vehicleRepository.delete(vehicle);
     }
@@ -86,12 +77,7 @@ public class VehicleService {
     @Transactional
     public VehicleDTO updateVehicleMileage(Long id, Long newMileage, Long userId) {
         log.debug("Updating mileage for vehicle {} to {} for user: {}", id, newMileage, userId);
-        Vehicle vehicle = vehicleRepository.findById(id)
-                .orElseThrow(() -> new VehicleException("Vehicle not found"));
-
-        if (!vehicle.getOwner().getId().equals(userId)) {
-            throw new VehicleException("Not authorized to update this vehicle");
-        } // tecnicamente non dovrebbe poter vedere altri veicoli oltre i propri
+        Vehicle vehicle = vehicleAccess.requireOwned(id, userId);
 
         if (newMileage < vehicle.getMileage()) {
             throw new VehicleException("New mileage cannot be less than current mileage");
