@@ -38,7 +38,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 // Automatic triggers off: the test runs the job itself, with a fixed clock
-@SpringBootTest(properties = {"app.scheduling.enabled=false", "app.mail.enabled=true"})
+@SpringBootTest(properties = {"app.scheduling.enabled=false", "app.mail.enabled=true",
+        "app.jobs.nightly.lock-at-least-for=PT0S"})
 @Import(TestcontainersConfiguration.class)
 @ActiveProfiles("dev")
 @AutoConfigureMockMvc
@@ -93,6 +94,13 @@ class NightlyJobTests {
 
         assertThat(taskStatus(completed)).isEqualTo("COMPLETED");
         assertThat(taskStatus(ofDeletedVehicle)).isEqualTo("PENDING");
+    }
+
+    @Test
+    void theJobRunsUnderASchedulerLock() throws Exception {
+        job.run();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM shedlock WHERE name = 'nightlyMaintenance'",
+                Integer.class)).isEqualTo(1);
     }
 
     @Test

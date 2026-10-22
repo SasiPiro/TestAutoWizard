@@ -22,6 +22,7 @@
         <jjwt.version>0.13.0</jjwt.version>
         <!-- 2.0.x is the Spring Modulith line built on Spring Boot 4.0 -->
         <spring-modulith.version>2.0.8</spring-modulith.version>
+        <shedlock.version>7.10.1</shedlock.version>
     </properties>
 
     <dependencyManagement>
@@ -94,6 +95,17 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Distributed lock for @Scheduled jobs: one execution across all instances -->
+        <dependency>
+            <groupId>net.javacrumbs.shedlock</groupId>
+            <artifactId>shedlock-spring</artifactId>
+            <version>${shedlock.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>net.javacrumbs.shedlock</groupId>
+            <artifactId>shedlock-provider-jdbc-template</artifactId>
+            <version>${shedlock.version}</version>
+        </dependency>
         <!-- Event publication registry: events stored in the publishing transaction -->
         <dependency>
             <groupId>org.springframework.modulith</groupId>

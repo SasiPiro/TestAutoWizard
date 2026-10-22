@@ -1,15 +1,48 @@
 package com.autowizard.shared.internal;
 
+import net.javacrumbs.shedlock.core.LockProvider;
+import net.javacrumbs.shedlock.provider.jdbctemplate.JdbcTemplateLockProvider;
+import net.javacrumbs.shedlock.spring.annotation.EnableSchedulerLock;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
+import javax.sql.DataSource;
+
 /**
- * Turns on the {@code @Scheduled} triggers. Set {@code app.scheduling.enabled=false} to stop
- * them (e.g. in tests, which invoke the jobs themselves with a fixed clock).
+ * Scheduling with a distributed lock.
+ *
+ * <p>
+ * With several instances of the backend every instance runs the {@code @Scheduled} methods.
+ * ShedLock stores one row per job in the {@code shedlock} table: the first instance that
+ * acquires it runs the job, the others skip that execution. The lock uses the database
+ * clock, so clock drift between instances does not matter.
+ * </p>
+ *
+ * <p>
+ * Set {@code app.scheduling.enabled=false} to stop the automatic triggers (e.g. in tests,
+ * which invoke the jobs themselves with a fixed clock); the lock stays active, so the jobs
+ * keep their locking behavior.
+ * </p>
  */
 @Configuration
-@EnableScheduling
-@ConditionalOnProperty(name = "app.scheduling.enabled", havingValue = "true", matchIfMissing = true)
+@EnableSchedulerLock(defaultLockAtMostFor = "PT30M")
 public class SchedulingConfig {
+
+    @Configuration
+    @EnableScheduling
+    @ConditionalOnProperty(name = "app.scheduling.enabled", havingValue = "true", matchIfMissing = true)
+    static class Triggers {
+    }
+
+    @Bean
+    public LockProvider lockProvider(DataSource dataSource) {
+        return new JdbcTemplateLockProvider(
+                JdbcTemplateLockProvider.Configuration.builder()
+                        .withJdbcTemplate(new JdbcTemplate(dataSource))
+                        .usingDbTime()
+                        .build());
+    }
 }
