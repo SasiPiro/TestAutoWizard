@@ -1,12 +1,11 @@
 package com.autowizard;
 
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
@@ -42,12 +41,14 @@ class JwtSecurityTests {
     void tokenSignedWithAnotherKeyIsRejectedWith401() throws Exception {
         String email = "forge-" + UUID.randomUUID() + "@test.it";
         register(email);
+        // Everything a real token has, user id included: only the signature is wrong
         String forged = Jwts.builder()
-                .setSubject(email)
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + 3_600_000))
+                .claim("userId", 1L)
+                .subject(email)
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + 3_600_000))
                 .signWith(Keys.hmacShaKeyFor("an-attacker-key-that-is-long-enough-for-hs256"
-                        .getBytes(StandardCharsets.UTF_8)), SignatureAlgorithm.HS256)
+                        .getBytes(StandardCharsets.UTF_8)), Jwts.SIG.HS256)
                 .compact();
 
         mvc.perform(get("/api/vehicles").header("Authorization", "Bearer " + forged))
