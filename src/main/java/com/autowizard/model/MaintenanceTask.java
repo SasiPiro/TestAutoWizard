@@ -76,6 +76,7 @@ public class MaintenanceTask {
 
     public enum TaskStatus {
         PENDING,
+        /** Past its date or mileage and not done yet: set by NightlyMaintenanceJob. */
         OVERDUE,
         COMPLETED
     }

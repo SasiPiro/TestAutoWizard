@@ -57,6 +57,13 @@ public class MaintenanceTaskService {
         return toResponse(task);
     }
 
+    @Transactional
+    public int markOverdueTasks(LocalDateTime now) {
+        int marked = maintenanceTaskRepository.markOverdue(now);
+        log.info("[TASK_OVERDUE] outcome=success marked={}", marked);
+        return marked;
+    }
+
     @Transactional(readOnly = true)
     public List<MaintenanceTaskResponse> getTasksByVehicleId(Long vehicleId, Long userId) {
         vehicleAccess.requireOwned(vehicleId, userId);
