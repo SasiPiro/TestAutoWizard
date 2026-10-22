@@ -19,8 +19,8 @@ import java.util.stream.Collectors;
 
 /**
  * Reminders are created by the nightly job, not by the client, and are idempotent: a user
- * has at most one open (not yet notified) reminder per type, updated when its tasks change,
- * and a reminder is never repeated for the same tasks.
+ * has at most one open (not yet notified) reminder per type (also a partial unique index),
+ * updated when its tasks change, and a reminder is never repeated for the same tasks.
  */
 @Slf4j
 @Service

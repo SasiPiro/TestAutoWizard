@@ -37,7 +37,8 @@ public class Vehicle {
     private String model;
 
     // Unique among vehicles that are not deleted: a deleted vehicle must not block registering
-    // the same plate or VIN again (e.g. a car sold to another user). Checked by VehicleService.
+    // the same plate or VIN again (e.g. a car sold to another user). Checked by VehicleService
+    // and guaranteed by partial unique indexes (V2 migration).
     @Column(nullable = false)
     private String licensePlate;
 
