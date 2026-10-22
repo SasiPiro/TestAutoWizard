@@ -4,7 +4,7 @@ A backend for vehicle owners: keep track of your vehicles, plan their maintenanc
 
 The distinctive part is where it is going: the documents users upload are meant to be **read by AI**, so that an insurance PDF or a photo of an invoice turns into expiry dates, mileage, costs and completed maintenance without typing them in.
 
-> **Status:** the REST API for users, vehicles, maintenance tasks, reminders and documents works on an in-memory H2 database, with JWT authentication. The AI endpoint returns a fixed mocked answer: document analysis is **planned** (a separate Python worker connected through Kafka). Known correctness and security problems are being fixed one by one: see [Planned next, and why](#planned-next-and-why).
+> **Status:** the REST API for users, vehicles, maintenance tasks, reminders and documents works on an in-memory H2 database, with JWT authentication, ownership checks on every resource, validated input, RFC 7807 errors and a request id in every log line. The AI endpoint returns a fixed mocked answer: document analysis is **planned** (a separate Python worker connected through Kafka). See [Planned next, and why](#planned-next-and-why).
 
 ---
 
@@ -27,7 +27,7 @@ The distinctive part is where it is going: the documents users upload are meant 
 ## What it does
 
 - **Accounts.** Registration and login with email and password; every other endpoint needs the returned JWT.
-- **Vehicles.** Each user manages their own vehicles (type, brand, model, plate, VIN, mileage, registration year, fuel) and updates the mileage, which can only grow.
+- **Vehicles.** Each user manages their own vehicles (type, brand, model, plate, VIN, mileage, registration year, fuel) and updates the mileage, which can only grow. Deleting a vehicle hides it but keeps its history.
 - **Maintenance tasks.** Tasks per vehicle with a scheduled date and mileage, priority and estimated cost, listed by vehicle or by user and by status (pending, overdue, completed).
 - **Reminders.** Reminders that group a user's pending or overdue tasks.
 - **Documents.** Upload, list, download and delete files attached to a vehicle, typed as registration, insurance, road tax, maintenance invoice or past maintenance booklet.
@@ -40,6 +40,12 @@ The distinctive part is where it is going: the documents users upload are meant 
 | With HMAC, whoever knows the JWT secret can sign a token for any user, and a secret had been committed to the repository | No default secret: the application refuses to start when it is missing, shorter than 32 bytes, or equal to the exposed one. The exposed secret is recognized by its SHA-256, so the check does not publish it again. A `dev` profile holds a local-only secret | `JwtService` |
 | The JWT filter verified the token more than once, turned errors into plain-text 500s and logged the `Authorization` header | The token is verified once per request; a missing or invalid token continues unauthenticated, and protected endpoints answer 401 from the entry point; tokens are never logged | `JwtAuthenticationFilter`, `SecurityConfig` |
 | Credentials in configuration files end up in the repository | Secrets (JWT, mail) are read from environment variables only | `application.properties` |
+| Some task listings by vehicle never checked who owns the vehicle | One place checks ownership, by loading the vehicle by id **and** owner; every vehicle-scoped operation goes through it. Someone else's vehicle, document or reminder is 404, exactly like a missing one, so ids cannot be probed | `VehicleAccess` |
+| Wrong passwords and duplicate emails were 500s with messages that revealed which emails exist; "not found" and "not yours" were 400s | Exceptions by meaning (`NotFoundException` 404, `ConflictException` 409, `BusinessRuleException` 400) and RFC 7807 problem details; login through the `AuthenticationManager` with one generic 401; a 500 never carries the exception message | `GlobalExceptionHandler`, `AuthService` |
+| An empty email and password created an account; a vehicle without its fields became a database error | Request records with Bean Validation, separate from response records, so clients cannot set ids, status or owner; 400 with one message per field, always in English | `dto/*Request` |
+| A vehicle with tasks referenced by reminders could not be deleted, and deleting in cascade would lose its history | Soft delete (`deleted_at`) with `@SQLRestriction`: the vehicle disappears from every query, its tasks, documents and reminders still point to an existing row | `Vehicle` |
+| The H2 console and permissive CORS were on in every environment | Both only where configured: the console in the `dev` profile, CORS origins from `CORS_ALLOWED_ORIGINS` (none by default) | `SecurityConfig` |
+| Every handled error was logged at ERROR and the lines of one request could not be found together | `[EVENT] key=value` lines, 4xx at INFO, failed logins at WARN, 5xx at ERROR once; a request id (`X-Request-Id`, validated against log injection) in every line, in the response and in error bodies | `RequestIdFilter`, services |
 
 ## Architecture
 
@@ -121,6 +127,16 @@ All endpoints except `/api/auth/**` require `Authorization: Bearer <token>`.
 | GET / DELETE | `/api/documents/{id}` | Download / delete a document |
 | POST | `/api/ai/query` | Mocked AI answer |
 
+**Errors** are [RFC 7807](https://www.rfc-editor.org/rfc/rfc7807) problem details (`application/problem+json`) with `type`, `title`, `status`, `detail`, `requestId` and, for validation errors, an `errors` map of field to message:
+
+| Status | When |
+|---|---|
+| 400 | Invalid input, unreadable body, wrong parameter type, broken business rule (e.g. a lower mileage) |
+| 401 | Missing or invalid token; failed login (same message for unknown email and wrong password) |
+| 404 | Unknown route, or a resource that does not exist **or belongs to another user** |
+| 409 | Email, plate or VIN already registered |
+| 500 | Unexpected failure; the body never contains the exception message, the log has the stack trace and the same request id |
+
 ## Testing
 
 ```bash
@@ -131,6 +147,13 @@ All endpoints except `/api/auth/**` require `Authorization: Bearer <token>`.
 |---|---|
 | `JwtServiceTests` | Missing, short and exposed secrets stop the startup; issued tokens verify, tampered, expired and foreign-key tokens do not |
 | `JwtSecurityTests` | Missing, garbage and forged tokens get 401; an invalid token does not block public endpoints; tokens never appear in the logs, even at DEBUG |
+| `OwnershipTests` | Another user gets 404 on every vehicle-scoped endpoint, exactly like for a missing vehicle; the owner can read everything |
+| `ErrorModelTests` | 400, 401, 404 and 409 cases with problem details; unknown email and wrong password are indistinguishable; someone else's document looks missing |
+| `ServerErrorTests` | An unexpected exception is a 500 without its message |
+| `ValidationTests` | Empty registration, incomplete vehicle, unknown fuel and negative mileage are 400 with field errors, in English; a client cannot set the status of a new task |
+| `VehicleDeletionTests` | A vehicle with tasks referenced by reminders and documents can be deleted, disappears from the API and leaves no dangling reference; its plate can be registered again |
+| `CorsTests`, `ProductionDefaultsTests` | CORS only from configured origins; without the `dev` profile no H2 console, no cross-origin access, frames denied |
+| `LoggingTests`, `RequestIdTests` | One `[EVENT]` line per event at the right level, no passwords or file names; the request id in header, error body and logs, unsafe incoming ids replaced |
 | `AutoWizardApplicationTests` | The application context starts with the `dev` profile |
 
 ## Configuration
@@ -140,17 +163,12 @@ All endpoints except `/api/auth/**` require `Authorization: Bearer <token>`.
 | `JWT_SECRET` | yes (outside `dev`) | HMAC key for the tokens, at least 32 bytes. Generate one with `openssl rand -base64 48` |
 | `MAIL_HOST`, `MAIL_PORT` | no | SMTP server, default `smtp.gmail.com:587` |
 | `MAIL_USERNAME`, `MAIL_PASSWORD` | no | SMTP credentials |
+| `CORS_ALLOWED_ORIGINS` | no | Comma-separated browser origins allowed to call the API. Empty (default) = none |
 
 ## Planned next, and why
 
 | Step | Problem it solves |
 |---|---|
-| Ownership checks on every vehicle-scoped endpoint | Some task listings by vehicle do not check who owns the vehicle |
-| An error model with the right status codes | Wrong passwords and duplicate emails are 500s; "not found" and "not yours" are 400s whose messages reveal whether a resource exists |
-| Input validation | An empty email and password create an account; missing vehicle fields surface as database errors |
-| A defined way to delete a vehicle | A vehicle with tasks referenced by reminders cannot be deleted |
-| Development conveniences only in development | The H2 console and permissive CORS are enabled everywhere |
-| Consistent logs with a request id | Every handled error is logged as an error, and log lines of one request cannot be found together |
 | Entities with safe equality and explicit fetching | Generated `equals`/`hashCode` walk the object graph; every request loads the user, listings load related rows and file contents |
 | Overdue detection and idempotent reminders | Nothing marks a task as overdue; generating reminders twice creates duplicates |
 | PostgreSQL, schema migrations, Docker Compose | The database is in memory and the schema is generated by Hibernate |
