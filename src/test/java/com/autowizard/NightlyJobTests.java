@@ -5,11 +5,15 @@ import com.autowizard.service.TimeService;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mail.MailSendException;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -18,6 +22,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -27,7 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 // Automatic triggers off: the test runs the job itself, with a fixed clock
-@SpringBootTest(properties = "app.scheduling.enabled=false")
+@SpringBootTest(properties = {"app.scheduling.enabled=false", "app.mail.enabled=true"})
 @ActiveProfiles("dev")
 @AutoConfigureMockMvc
 class NightlyJobTests {
@@ -39,15 +47,18 @@ class NightlyJobTests {
     @Autowired JdbcTemplate jdbc;
 
     @MockBean TimeService timeService;
+    @MockBean JavaMailSender mailSender;
 
     TestApi api;
+    String email;
     String token;
 
     @BeforeEach
     void fixedClock() throws Exception {
         when(timeService.now()).thenReturn(NOW);
         api = new TestApi(mvc);
-        token = api.newUser();
+        email = TestApi.randomEmail("job");
+        token = api.register(email);
     }
 
     @Test
@@ -97,6 +108,31 @@ class NightlyJobTests {
     }
 
     @Test
+    void aReminderIsEmailedOnceWhenCreatedAndAgainOnlyWhenItChanges() throws Exception {
+        long vehicleId = api.createVehicle(token, 60_000);
+        api.createTask(token, vehicleId, "2026-10-01T10:00:00", 90_000);
+
+        job.run();
+        job.run();
+        assertThat(emailsTo(email)).hasSize(1);
+        assertThat(emailsTo(email).get(0).getSubject()).isEqualTo("AutoWizard: Manutenzioni scadute");
+
+        api.createTask(token, vehicleId, "2026-10-02T10:00:00", 90_000);
+        job.run();
+        assertThat(emailsTo(email)).hasSize(2);
+    }
+
+    @Test
+    void aFailingMailServerDoesNotLoseTheReminder() throws Exception {
+        doThrow(new MailSendException("smtp down")).when(mailSender).send(any(SimpleMailMessage.class));
+        api.createTask(token, api.createVehicle(token, 60_000), "2026-10-01T10:00:00", 90_000);
+
+        job.run();
+
+        assertThat(openReminders("OVERDUE_TASKS")).hasSize(1);
+    }
+
+    @Test
     void theOpenReminderFollowsTheTasksAndDisappearsWhenTheyAreDone() throws Exception {
         long vehicleId = api.createVehicle(token, 60_000);
         long first = api.createTask(token, vehicleId, "2026-10-01T10:00:00", 90_000);
@@ -142,6 +178,14 @@ class NightlyJobTests {
         List<Long> upcoming = openReminders("PENDING_TASKS");
         assertThat(upcoming).hasSize(1);
         assertThat(remindedTasks(upcoming.get(0))).containsExactly(inThreeDays);
+    }
+
+    private List<SimpleMailMessage> emailsTo(String recipient) {
+        ArgumentCaptor<SimpleMailMessage> sent = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender, atLeast(0)).send(sent.capture());
+        return sent.getAllValues().stream()
+                .filter(message -> message.getTo() != null && List.of(message.getTo()).contains(recipient))
+                .toList();
     }
 
     private List<Long> openReminders(String type) throws Exception {
