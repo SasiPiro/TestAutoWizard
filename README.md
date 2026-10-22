@@ -4,7 +4,7 @@ A backend for vehicle owners: keep track of your vehicles, plan their maintenanc
 
 The distinctive part is where it is going: the documents users upload are meant to be **read by AI**, so that an insurance PDF or a photo of an invoice turns into expiry dates, mileage, costs and completed maintenance without typing them in.
 
-> **Status:** the REST API for users, vehicles, maintenance tasks, reminders and documents works on an in-memory H2 database, with JWT authentication, ownership checks on every resource, validated input, RFC 7807 errors and a request id in every log line. A nightly job marks overdue tasks and keeps one reminder per user and type, emailed when it changes. The code is a modular monolith whose module boundaries are verified by a test. The AI endpoint returns a fixed mocked answer: document analysis is **planned** (a separate Python worker connected through Kafka). See [Planned next, and why](#planned-next-and-why).
+> **Status:** the REST API for users, vehicles, maintenance tasks, reminders and documents works on PostgreSQL with Flyway migrations (Java 21, Spring Boot 4), with JWT authentication, ownership checks on every resource, validated input, RFC 7807 errors and a request id in every log line. A nightly job marks overdue tasks and keeps one reminder per user and type, emailed when it changes. The code is a modular monolith whose module boundaries are verified by a test. The AI endpoint returns a fixed mocked answer: document analysis is **planned** (a separate Python worker connected through Kafka). See [Planned next, and why](#planned-next-and-why).
 
 ---
 
@@ -45,7 +45,7 @@ The distinctive part is where it is going: the documents users upload are meant 
 | Wrong passwords and duplicate emails were 500s with messages that revealed which emails exist; "not found" and "not yours" were 400s | Exceptions by meaning (`NotFoundException` 404, `ConflictException` 409, `BusinessRuleException` 400) and RFC 7807 problem details; login through the `AuthenticationManager` with one generic 401; a 500 never carries the exception message | `GlobalExceptionHandler`, `AuthService` |
 | An empty email and password created an account; a vehicle without its fields became a database error | Request records with Bean Validation, separate from response records, so clients cannot set ids, status or owner; 400 with one message per field, always in English | `*Request` records |
 | A vehicle with tasks referenced by reminders could not be deleted, and deleting in cascade would lose its history | Soft delete (`deleted_at`) with `@SQLRestriction`: the vehicle disappears from every query, its tasks, documents and reminders still point to an existing row | `Vehicle` |
-| The H2 console and permissive CORS were on in every environment | Both only where configured: the console in the `dev` profile, CORS origins from `CORS_ALLOWED_ORIGINS` (none by default) | `SecurityConfig` |
+| The H2 console and permissive CORS were on in every environment | Both only where configured: the console in the `dev` profile (gone with H2), CORS origins from `CORS_ALLOWED_ORIGINS` (none by default) | `SecurityConfig` |
 | Every handled error was logged at ERROR and the lines of one request could not be found together | `[EVENT] key=value` lines, 4xx at INFO, failed logins at WARN, 5xx at ERROR once; a request id (`X-Request-Id`, validated against log injection) in every line, in the response and in error bodies | `RequestIdFilter`, services |
 | Generated `equals`/`hashCode` walked vehicle → owner → collections: generating reminders crashed as soon as a user had a task | Entities equal by id (proxy-safe, constant hash code), `toString` without associations, one security representation of a user | entities, `EntityEqualityTests` |
 | Listing documents loaded every file into memory (`@Basic(fetch = LAZY)` is ignored without bytecode enhancement) | The list is a projection of the metadata; the download selects only the content; the stored type is detected from the file signature (PDF, JPEG, PNG), never taken from the client | `DocumentRepository`, `DocumentFiles` |
@@ -55,13 +55,17 @@ The distinctive part is where it is going: the documents users upload are meant 
 | Generating reminders twice created two reminders | Reminders come from the job: one open reminder per user and type, updated when its tasks change, never repeated for the same tasks; emails only for created or changed reminders, sent after the commit | `ReminderService`, `ReminderMailer` |
 | Code organized by technical layer, with nothing preventing any class from using any other | Package by feature with an API package and an `internal` package per module, verified by Spring Modulith; modules react to each other through in-process events stored in the event publication registry (`MaintenanceTaskCompleted` → reminders) | `ModularityTests`, `CompletedTaskReminders` |
 | Two completions in quick succession updated the same reminder from two listeners at once | The listener reads the user's open reminders with a pessimistic lock (`SELECT ... FOR UPDATE`) | `ReminderRepository` |
+| The schema was generated by Hibernate on an in-memory database | PostgreSQL; the schema is Flyway migrations with named constraints and indexes, and Hibernate only **validates** it at startup | `db/migration` |
+| Unique plates and one open reminder per user were check-then-insert in the services | PostgreSQL partial unique indexes (`WHERE deleted_at IS NULL`, `WHERE notified = FALSE`): two concurrent requests give one success and one 409 | `V2__…sql`, `DatabaseConstraintTests` |
+| With several instances, every instance would run the nightly job | ShedLock on the database clock: one execution per night across instances | `SchedulingConfig`, `NightlyMaintenanceJob` |
+| Tests on H2 proved behavior on a database that does not run in production | Every Spring test runs on PostgreSQL 16 in Docker (Testcontainers, `@ServiceConnection`) | `TestcontainersConfiguration` |
 
 ## Architecture
 
 ```mermaid
 graph LR
     C["Client (mobile app / web)"] -->|"REST + JWT"| API["Spring Boot backend"]
-    API --> DB[("H2 in memory")]
+    API --> DB[("PostgreSQL")]
     API -.->|"mocked"| AI["AI endpoint"]
 ```
 
@@ -80,7 +84,7 @@ graph TD
     maintenance -. "MaintenanceTaskCompleted (event)" .-> reminder
 ```
 
-Every module also uses `shared` (exceptions by meaning, `TimeService`, the request id). `ai` holds the mocked endpoint. Documents are stored as binary columns in the database.
+Every module also uses `shared` (exceptions by meaning, `TimeService`, the request id). `ai` holds the mocked endpoint. Documents are stored in a `bytea` column for now.
 
 ## Why this architecture
 
@@ -92,23 +96,27 @@ Every module also uses `shared` (exceptions by meaning, `TimeService`, the reque
 
 | Layer | Technology |
 |---|---|
-| Language and framework | Java 17, Spring Boot 3.2 |
-| Persistence | Spring Data JPA (Hibernate), H2 in memory |
-| Modules | Spring Modulith 1.1 (boundary verification, event publication registry) |
-| Security | Spring Security, JWT (jjwt 0.11), BCrypt |
-| Build | Maven (wrapper included) |
-| Tests | JUnit 5, Spring Boot Test, MockMvc |
-| Planned | PostgreSQL with Flyway, object storage (S3 / MinIO), Kafka, Python AI worker |
+| Language and framework | Java 21, Spring Boot 4.0 |
+| Persistence | PostgreSQL 16, Spring Data JPA (Hibernate 7), Flyway |
+| Modules | Spring Modulith 2.0 (boundary verification, event publication registry) |
+| Security | Spring Security 7, JWT (jjwt 0.13), BCrypt |
+| Jobs | Spring scheduling with ShedLock |
+| Build and local infrastructure | Maven (wrapper included), Docker Compose |
+| Tests | JUnit 5, Spring Boot Test, MockMvc, Testcontainers, Awaitility |
+| Planned | Object storage (S3 / MinIO), Kafka, Python AI worker |
 
 ## Running locally
 
-**Prerequisites:** JDK 17 or newer.
+**Prerequisites:** JDK 21 and Docker.
 
 ```bash
+docker compose up -d                                   # PostgreSQL on localhost:5432
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
-The `dev` profile provides a local JWT secret. Without it the application refuses to start until `JWT_SECRET` is set (see [Configuration](#configuration)).
+If port 5432 is taken (e.g. by a local PostgreSQL), set `POSTGRES_PORT=55432` for both commands. Without Compose, `./mvnw spring-boot:test-run -Dspring-boot.run.profiles=dev` starts the application with a throw-away PostgreSQL container.
+
+The `dev` profile provides a local JWT secret and the local database credentials. Without it the application refuses to start until `JWT_SECRET` and the datasource are set (see [Configuration](#configuration)).
 
 A quick tour with curl:
 
@@ -167,7 +175,7 @@ All endpoints except `/api/auth/**` require `Authorization: Bearer <token>`.
 ## Testing
 
 ```bash
-./mvnw clean verify
+./mvnw clean verify      # needs Docker: the tests run on PostgreSQL containers
 ```
 
 | Test class | What it proves |
@@ -179,7 +187,7 @@ All endpoints except `/api/auth/**` require `Authorization: Bearer <token>`.
 | `ServerErrorTests` | An unexpected exception is a 500 without its message |
 | `ValidationTests` | Empty registration, incomplete vehicle, unknown fuel and negative mileage are 400 with field errors, in English; a client cannot set the status of a new task |
 | `VehicleDeletionTests` | A vehicle with tasks referenced by reminders and documents can be deleted, disappears from the API and leaves no dangling reference; its plate can be registered again |
-| `CorsTests`, `ProductionDefaultsTests` | CORS only from configured origins; without the `dev` profile no H2 console, no cross-origin access, frames denied |
+| `CorsTests`, `ProductionDefaultsTests` | CORS only from configured origins; without the `dev` profile no cross-origin access and frames denied |
 | `LoggingTests`, `RequestIdTests` | One `[EVENT]` line per event at the right level, no passwords or file names; the request id in header, error body and logs, unsafe incoming ids replaced |
 | `EntityEqualityTests` | Reminders can be generated for tasks in a set; an entity equals a proxy of itself; `toString` does not touch associations |
 | `DocumentTests` | Listing documents never selects their content; the stored type comes from the file, not the client; only PDF, JPEG and PNG; safe, encoded file names |
@@ -190,6 +198,8 @@ All endpoints except `/api/auth/**` require `Authorization: Bearer <token>`.
 | `NightlyJobTests` | With a fixed clock: overdue by date or mileage, completed and deleted left alone; two runs create one reminder, which follows the tasks and is emailed once per change; a failing mail server loses nothing |
 | `TaskEventsTests` | A completed task leaves the open reminders through `MaintenanceTaskCompleted`; concurrent listeners on one reminder leave it consistent |
 | `ModularityTests` | No module uses another module's internals, no cycles; writes the module diagrams |
+| `DatabaseConstraintTests` | Concurrent registrations of one plate give one 200 and one 409; plates unique among active vehicles only; one open reminder per user and type |
+| `SchedulerLockTests` | A second trigger of the nightly job inside the lock window does nothing |
 | `AutoWizardApplicationTests` | The application context starts with the `dev` profile |
 
 ## Configuration
@@ -197,6 +207,8 @@ All endpoints except `/api/auth/**` require `Authorization: Bearer <token>`.
 | Variable | Required | Description |
 |---|---|---|
 | `JWT_SECRET` | yes (outside `dev`) | HMAC key for the tokens, at least 32 bytes. Generate one with `openssl rand -base64 48` |
+| `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD` | yes (outside `dev`) | PostgreSQL connection; the schema is created by the migrations |
+| `POSTGRES_PORT` | no | Host port of the Compose database and of the `dev` datasource, default `5432` |
 | `MAIL_HOST`, `MAIL_PORT` | no | SMTP server, default `smtp.gmail.com:587` |
 | `MAIL_USERNAME`, `MAIL_PASSWORD` | no | SMTP credentials |
 | `MAIL_ENABLED` | no | `true` to email reminders (default `false`) |
@@ -208,7 +220,6 @@ All endpoints except `/api/auth/**` require `Authorization: Bearer <token>`.
 
 | Step | Problem it solves |
 |---|---|
-| PostgreSQL, schema migrations, Docker Compose | The database is in memory and the schema is generated by Hibernate |
 | Documents in object storage | Files in the database grow backups and fill the heap on reads |
 | AI document analysis through Kafka and a Python worker | Users type by hand what is already written in their documents |
 
