@@ -35,6 +35,20 @@ public interface MaintenanceTaskRepository extends JpaRepository<MaintenanceTask
         return markOverdue(now, MaintenanceTask.TaskStatus.PENDING, MaintenanceTask.TaskStatus.OVERDUE);
     }
 
+    /** Tasks with their vehicle and owner (active vehicles only), for the reminders of every user. */
+    @Query("SELECT t FROM MaintenanceTask t JOIN FETCH t.vehicle v JOIN FETCH v.owner WHERE t.status = :status")
+    List<MaintenanceTask> findWithOwnerByStatus(MaintenanceTask.TaskStatus status);
+
+    @Query("""
+            SELECT t FROM MaintenanceTask t JOIN FETCH t.vehicle v JOIN FETCH v.owner
+             WHERE t.status = :status AND t.scheduledDate >= :from AND t.scheduledDate < :to""")
+    List<MaintenanceTask> findWithOwnerByStatusDueBetween(MaintenanceTask.TaskStatus status, LocalDateTime from,
+                                                          LocalDateTime to);
+
+    default List<MaintenanceTask> findPendingWithOwnerDueBetween(LocalDateTime from, LocalDateTime to) {
+        return findWithOwnerByStatusDueBetween(MaintenanceTask.TaskStatus.PENDING, from, to);
+    }
+
     /** The task with its vehicle, if the vehicle belongs to the owner (and is not deleted). */
     @Query("SELECT t FROM MaintenanceTask t JOIN FETCH t.vehicle v WHERE t.id = :id AND v.owner.id = :ownerId")
     Optional<MaintenanceTask> findOwned(Long id, Long ownerId);

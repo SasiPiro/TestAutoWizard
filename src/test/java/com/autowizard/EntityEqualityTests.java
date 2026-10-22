@@ -2,6 +2,7 @@ package com.autowizard;
 
 import com.autowizard.model.MaintenanceTask;
 import com.autowizard.model.Vehicle;
+import com.autowizard.service.ReminderService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.Hibernate;
@@ -12,12 +13,13 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Function;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -32,6 +34,7 @@ class EntityEqualityTests {
 
     @Autowired MockMvc mvc;
     @Autowired EntityManagerFactory emf;
+    @Autowired ReminderService reminderService;
 
     @Test
     void tasksCanBePutInASetAndRemindersGenerated() throws Exception {
@@ -41,7 +44,9 @@ class EntityEqualityTests {
         long vehicleId = api.createVehicle(token);
         long taskId = api.createTask(token, vehicleId, "2030-01-01T10:00:00", 60_000);
 
-        mvc.perform(post("/api/reminders/generate/pending").header("Authorization", "Bearer " + token))
+        reminderService.refreshReminders(LocalDateTime.of(2029, 12, 31, 0, 1));
+
+        mvc.perform(get("/api/reminders").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].taskIds[0]").value(taskId));
     }

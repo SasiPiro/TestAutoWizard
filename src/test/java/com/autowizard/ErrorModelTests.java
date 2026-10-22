@@ -115,7 +115,7 @@ class ErrorModelTests {
 
     @Test
     void aReminderThatIsNotTheCallersIs404() throws Exception {
-        mvc.perform(put("/api/reminders/" + Long.MAX_VALUE + "/notify").header("Authorization", "Bearer " + api.newUser()))
+        mvc.perform(put("/api/reminders/" + Long.MAX_VALUE + "/notified").header("Authorization", "Bearer " + api.newUser()))
                 .andExpect(status().isNotFound());
     }
 
