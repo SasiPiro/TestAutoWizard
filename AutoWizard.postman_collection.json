@@ -80,50 +80,6 @@
 						},
 						"description": "Login and get JWT token"
 					}
-				},
-				{
-					"name": "Forgot Password",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"email\": \"user@example.com\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/api/auth/forgot-password",
-							"host": ["{{base_url}}"],
-							"path": ["api", "auth", "forgot-password"]
-						},
-						"description": "Request password reset"
-					}
-				},
-				{
-					"name": "Reset Password",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"token\": \"reset_token_here\",\n    \"newPassword\": \"newpassword123\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/api/auth/reset-password",
-							"host": ["{{base_url}}"],
-							"path": ["api", "auth", "reset-password"]
-						},
-						"description": "Reset password with token"
-					}
 				}
 			]
 		},
@@ -358,7 +314,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"title\": \"Cambio Olio\",\n    \"description\": \"Cambio olio motore e filtro\",\n    \"scheduledDate\": \"2024-04-01T10:00:00\",\n    \"priority\": \"MEDIUM\",\n    \"scheduledMileage\": 60000,\n    \"notes\": \"Usare olio sintetico 5W-30\",\n    \"vehicleId\": {{vehicle_id}}\n}"
+							"raw": "{\n    \"title\": \"Cambio Olio\",\n    \"description\": \"Cambio olio motore e filtro\",\n    \"scheduledDate\": \"2027-04-01T10:00:00\",\n    \"priority\": \"MEDIUM\",\n    \"scheduledMileage\": 60000,\n    \"notes\": \"Usare olio sintetico 5W-30\",\n    \"vehicleId\": {{vehicle_id}}\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}/api/maintenance-tasks",
@@ -366,6 +322,32 @@
 							"path": ["api", "maintenance-tasks"]
 						},
 						"description": "Create a new maintenance task for a vehicle. Required fields: title, description, scheduledDate, priority, scheduledMileage, vehicleId. Optional fields: notes."
+					}
+				},
+				{
+					"name": "Complete Task",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"actualCost\": 210.00,\n    \"completionMileage\": 61200,\n    \"completionDate\": \"2026-01-15T17:30:00\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/maintenance-tasks/{{task_id}}/complete",
+							"host": ["{{base_url}}"],
+							"path": ["api", "maintenance-tasks", "{{task_id}}", "complete"]
+						},
+						"description": "Mark a task as done. Required: completionMileage. Optional: actualCost, completionDate (default now). Raises the vehicle mileage if higher."
 					}
 				},
 				{
@@ -518,6 +500,24 @@
 			"name": "Reminders",
 			"item": [
 				{
+					"name": "Get Open Reminders",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/reminders",
+							"host": ["{{base_url}}"],
+							"path": ["api", "reminders"]
+						},
+						"description": "Reminders not yet notified. They are created by the nightly job: overdue tasks and pending tasks due in the next days."
+					}
+				},
+				{
 					"name": "Mark as Notified",
 					"request": {
 						"method": "PUT",
@@ -528,47 +528,11 @@
 							}
 						],
 						"url": {
-							"raw": "{{base_url}}/api/reminders/{{reminder_id}}/notify",
+							"raw": "{{base_url}}/api/reminders/{{reminder_id}}/notified",
 							"host": ["{{base_url}}"],
-							"path": ["api", "reminders", "{{reminder_id}}", "notify"]
+							"path": ["api", "reminders", "{{reminder_id}}", "notified"]
 						},
 						"description": "Mark a reminder as notified"
-					}
-				},
-				{
-					"name": "Generate Pending Task Reminders",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/api/reminders/generate/pending",
-							"host": ["{{base_url}}"],
-							"path": ["api", "reminders", "generate", "pending"]
-						},
-						"description": "Generate reminders for pending maintenance tasks"
-					}
-				},
-				{
-					"name": "Generate Overdue Task Reminders",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							}
-						],
-						"url": {
-							"raw": "{{base_url}}/api/reminders/generate/overdue",
-							"host": ["{{base_url}}"],
-							"path": ["api", "reminders", "generate", "overdue"]
-						},
-						"description": "Generate reminders for overdue maintenance tasks"
 					}
 				}
 			]
@@ -608,6 +572,11 @@
 		},
 		{
 			"key": "document_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "task_id",
 			"value": "1",
 			"type": "string"
 		},
