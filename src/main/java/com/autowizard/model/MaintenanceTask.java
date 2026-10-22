@@ -4,8 +4,12 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
+import com.autowizard.exception.BusinessRuleException;
+import com.autowizard.exception.ConflictException;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+
 @Getter
 @Setter
 @ToString(onlyExplicitlyIncluded = true)
@@ -51,6 +55,24 @@ public class MaintenanceTask {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "vehicle_id", nullable = false)
     private Vehicle vehicle;
+
+    /**
+     * Records the work as done. The vehicle's mileage follows: a service done at 61,200 km
+     * means the car has at least 61,200 km.
+     */
+    public void complete(BigDecimal actualCost, long completionMileage, LocalDateTime completionDate, LocalDateTime now) {
+        if (status == TaskStatus.COMPLETED) {
+            throw new ConflictException("Task already completed");
+        }
+        if (completionDate.isAfter(now)) {
+            throw new BusinessRuleException("Completion date cannot be in the future");
+        }
+        this.actualCost = actualCost;
+        this.completionMileage = completionMileage;
+        this.completionDate = completionDate;
+        this.status = TaskStatus.COMPLETED;
+        vehicle.recordMileage(completionMileage);
+    }
 
     public enum TaskStatus {
         PENDING,

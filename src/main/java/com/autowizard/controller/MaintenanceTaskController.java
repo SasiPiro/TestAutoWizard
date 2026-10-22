@@ -1,5 +1,6 @@
 package com.autowizard.controller;
 
+import com.autowizard.dto.CompleteTaskRequest;
 import com.autowizard.dto.MaintenanceTaskRequest;
 import com.autowizard.dto.MaintenanceTaskResponse;
 import com.autowizard.security.CurrentUser;
@@ -23,6 +24,14 @@ public class MaintenanceTaskController {
             @Valid @RequestBody MaintenanceTaskRequest request,
             @CurrentUser UserPrincipal currentUser) {
         return ResponseEntity.ok(maintenanceTaskService.createTask(request, currentUser.getId()));
+    }
+
+    @PatchMapping("/{id}/complete")
+    public ResponseEntity<MaintenanceTaskResponse> completeTask(
+            @PathVariable Long id,
+            @Valid @RequestBody CompleteTaskRequest request,
+            @CurrentUser UserPrincipal currentUser) {
+        return ResponseEntity.ok(maintenanceTaskService.completeTask(id, request, currentUser.getId()));
     }
 
     @GetMapping("/vehicle/{vehicleId}")

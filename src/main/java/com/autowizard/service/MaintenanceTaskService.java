@@ -1,7 +1,9 @@
 package com.autowizard.service;
 
+import com.autowizard.dto.CompleteTaskRequest;
 import com.autowizard.dto.MaintenanceTaskRequest;
 import com.autowizard.dto.MaintenanceTaskResponse;
+import com.autowizard.exception.NotFoundException;
 import com.autowizard.model.MaintenanceTask;
 import com.autowizard.model.Vehicle;
 import com.autowizard.repository.MaintenanceTaskRepository;
@@ -10,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -19,6 +22,7 @@ import java.util.stream.Collectors;
 public class MaintenanceTaskService {
     private final MaintenanceTaskRepository maintenanceTaskRepository;
     private final VehicleAccess vehicleAccess;
+    private final TimeService timeService;
 
     @Transactional
     public MaintenanceTaskResponse createTask(MaintenanceTaskRequest request, Long userId) {
@@ -38,6 +42,19 @@ public class MaintenanceTaskService {
         MaintenanceTask savedTask = maintenanceTaskRepository.save(task);
         log.info("[TASK_CREATE] outcome=success taskId={} vehicleId={}", savedTask.getId(), vehicle.getId());
         return toResponse(savedTask);
+    }
+
+    @Transactional
+    public MaintenanceTaskResponse completeTask(Long taskId, CompleteTaskRequest request, Long userId) {
+        MaintenanceTask task = maintenanceTaskRepository.findOwned(taskId, userId)
+                .orElseThrow(() -> new NotFoundException("Task not found"));
+        LocalDateTime now = timeService.now();
+        LocalDateTime completionDate = request.completionDate() != null ? request.completionDate() : now;
+
+        task.complete(request.actualCost(), request.completionMileage(), completionDate, now);
+        log.info("[TASK_COMPLETE] outcome=success taskId={} vehicleId={} completionMileage={}",
+                taskId, task.getVehicle().getId(), request.completionMileage());
+        return toResponse(task);
     }
 
     @Transactional(readOnly = true)
@@ -115,6 +132,5 @@ public class MaintenanceTaskService {
                 task.getCompletionMileage(), task.getVehicle().getId());
     }
 
-    //TODO. funzione che setta actualCost (pop-up che si apre quando la task passa a COMPELETED) (utente completa la task)
     //TODO. funzioni per ottenere la delle task sia globale che per periodo di tempo
 } 

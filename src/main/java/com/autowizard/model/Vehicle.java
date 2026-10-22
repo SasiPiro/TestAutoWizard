@@ -1,5 +1,6 @@
 package com.autowizard.model;
 
+import com.autowizard.exception.BusinessRuleException;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -69,6 +70,21 @@ public class Vehicle {
 
     @OneToMany(mappedBy = "vehicle", cascade = CascadeType.ALL)
     private Set<MaintenanceTask> maintenanceTasks = new HashSet<>();
+
+    /** A mileage typed by the user: it can only grow. */
+    public void updateMileage(long newMileage) {
+        if (newMileage < mileage) {
+            throw new BusinessRuleException("New mileage cannot be less than current mileage");
+        }
+        this.mileage = newMileage;
+    }
+
+    /** A mileage read from completed work: raises the current one, never lowers it. */
+    public void recordMileage(long observedMileage) {
+        if (observedMileage > mileage) {
+            this.mileage = observedMileage;
+        }
+    }
 
     /**
      * Equal when the other object is the same row: same class (a Hibernate proxy is a

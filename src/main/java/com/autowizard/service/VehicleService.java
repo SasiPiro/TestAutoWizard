@@ -2,7 +2,6 @@ package com.autowizard.service;
 
 import com.autowizard.dto.VehicleRequest;
 import com.autowizard.dto.VehicleResponse;
-import com.autowizard.exception.BusinessRuleException;
 import com.autowizard.exception.ConflictException;
 import com.autowizard.model.Vehicle;
 import com.autowizard.model.User;
@@ -79,12 +78,8 @@ public class VehicleService {
     public VehicleResponse updateVehicleMileage(Long id, Long newMileage, Long userId) {
         Vehicle vehicle = vehicleAccess.requireOwned(id, userId);
 
-        if (newMileage < vehicle.getMileage()) {
-            throw new BusinessRuleException("New mileage cannot be less than current mileage");
-        }
-
         long previousMileage = vehicle.getMileage();
-        vehicle.setMileage(newMileage);
+        vehicle.updateMileage(newMileage);
         Vehicle updatedVehicle = vehicleRepository.save(vehicle);
         log.info("[VEHICLE_MILEAGE] outcome=success vehicleId={} from={} to={}", id, previousMileage, newMileage);
         return toResponse(updatedVehicle);
