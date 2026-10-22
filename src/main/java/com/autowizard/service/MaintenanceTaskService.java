@@ -1,7 +1,6 @@
 package com.autowizard.service;
 
 import com.autowizard.dto.MaintenanceTaskDTO;
-import com.autowizard.exception.MaintenanceTaskException;
 import com.autowizard.model.MaintenanceTask;
 import com.autowizard.model.Vehicle;
 import com.autowizard.repository.MaintenanceTaskRepository;
@@ -52,89 +51,61 @@ public class MaintenanceTaskService {
 
     @Transactional(readOnly = true)
     public List<MaintenanceTaskDTO> getPendingTasksByUser(Long userId) {
-        try {
-            return maintenanceTaskRepository.findByStatusAndVehicleOwnerId(MaintenanceTask.TaskStatus.PENDING, userId)
-                    .stream()
-                    .map(this::convertToDTO)
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            throw new MaintenanceTaskException("Error fetching pending tasks for user: " + e.getMessage(), e);
-        }
+        return maintenanceTaskRepository.findByStatusAndVehicleOwnerId(MaintenanceTask.TaskStatus.PENDING, userId)
+                .stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<MaintenanceTaskDTO> getPendingTasksByVehicle(Long vehicleId, Long userId) {
         vehicleAccess.requireOwned(vehicleId, userId);
-        try {
-            return maintenanceTaskRepository.findByStatusAndVehicleId(MaintenanceTask.TaskStatus.PENDING, vehicleId)
-                    .stream()
-                    .map(this::convertToDTO)
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            throw new MaintenanceTaskException("Error fetching pending tasks for vehicle: " + e.getMessage(), e);
-        }
+        return maintenanceTaskRepository.findByStatusAndVehicleId(MaintenanceTask.TaskStatus.PENDING, vehicleId)
+                .stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<MaintenanceTaskDTO> getOverdueTasksByUser(Long userId) {
-        try {
-            return maintenanceTaskRepository.findByStatusAndVehicleOwnerId(MaintenanceTask.TaskStatus.OVERDUE, userId)
-                    .stream()
-                    .map(this::convertToDTO)
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            throw new MaintenanceTaskException("Error fetching overdue tasks for user: " + e.getMessage(), e);
-        }
+        return maintenanceTaskRepository.findByStatusAndVehicleOwnerId(MaintenanceTask.TaskStatus.OVERDUE, userId)
+                .stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<MaintenanceTaskDTO> getOverdueTasksByVehicle(Long vehicleId, Long userId) {
         vehicleAccess.requireOwned(vehicleId, userId);
-        try {
-            return maintenanceTaskRepository.findByStatusAndVehicleId(MaintenanceTask.TaskStatus.OVERDUE, vehicleId)
-                    .stream()
-                    .map(this::convertToDTO)
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            throw new MaintenanceTaskException("Error fetching overdue tasks for vehicle: " + e.getMessage(), e);
-        }
+        return maintenanceTaskRepository.findByStatusAndVehicleId(MaintenanceTask.TaskStatus.OVERDUE, vehicleId)
+                .stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<MaintenanceTaskDTO> getCompletedTasksByUser(Long userId) {
-        try {
-            return maintenanceTaskRepository.findByStatusAndVehicleOwnerId(MaintenanceTask.TaskStatus.COMPLETED, userId)
-                    .stream()
-                    .map(this::convertToDTO)
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            throw new MaintenanceTaskException("Error fetching completed tasks for user: " + e.getMessage(), e);
-        }
+        return maintenanceTaskRepository.findByStatusAndVehicleOwnerId(MaintenanceTask.TaskStatus.COMPLETED, userId)
+                .stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<MaintenanceTaskDTO> getCompletedTasksByVehicle(Long vehicleId, Long userId) {
         vehicleAccess.requireOwned(vehicleId, userId);
-        try {
-            return maintenanceTaskRepository.findByStatusAndVehicleId(MaintenanceTask.TaskStatus.COMPLETED, vehicleId)
-                    .stream()
-                    .map(this::convertToDTO)
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            throw new MaintenanceTaskException("Error fetching completed tasks for vehicle: " + e.getMessage(), e);
-        }
+        return maintenanceTaskRepository.findByStatusAndVehicleId(MaintenanceTask.TaskStatus.COMPLETED, vehicleId)
+                .stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<MaintenanceTaskDTO> getAllTasksByUser(Long userId) {
-        try {
-            return maintenanceTaskRepository.findByVehicleOwnerId(userId)
-                    .stream()
-                    .map(this::convertToDTO)
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            throw new MaintenanceTaskException("Error fetching all tasks for user: " + e.getMessage(), e);
-        }
+        return maintenanceTaskRepository.findByVehicleOwnerId(userId)
+                .stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
     }
 
     private MaintenanceTaskDTO convertToDTO(MaintenanceTask task) {

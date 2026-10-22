@@ -2,7 +2,7 @@ package com.autowizard.service;
 
 import com.autowizard.dto.DocumentContentDTO;
 import com.autowizard.dto.DocumentDTO;
-import com.autowizard.exception.DocumentException;
+import com.autowizard.exception.NotFoundException;
 import com.autowizard.model.Document;
 import com.autowizard.model.User;
 import com.autowizard.model.Vehicle;
@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -32,33 +33,25 @@ public class DocumentService {
         Vehicle vehicle = vehicleAccess.requireOwned(vehicleId, userId);
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new DocumentException("User not found"));
+                .orElseThrow(() -> new NotFoundException("User not found"));
 
-        try {
-            Document document = new Document();
-            document.setName(file.getOriginalFilename());
-            document.setType(type);
-            document.setContent(file.getBytes());
-            document.setContentType(file.getContentType());
-            document.setVehicle(vehicle);
-            document.setUploadDate(LocalDateTime.now());
-            document.setUser(user);
+        Document document = new Document();
+        document.setName(file.getOriginalFilename());
+        document.setType(type);
+        document.setContent(readContent(file));
+        document.setContentType(file.getContentType());
+        document.setVehicle(vehicle);
+        document.setUploadDate(LocalDateTime.now());
+        document.setUser(user);
 
-            return convertToDTO(documentRepository.save(document));
-        } catch (IOException e) {
-            throw new DocumentException("Failed to process document", e);
-        }
+        return convertToDTO(documentRepository.save(document));
     }
 
     @Transactional(readOnly = true)
     public DocumentContentDTO getDocument(Long id, Long userId) {
         log.debug("Fetching document {} for user: {}", id, userId);
-        Document document = documentRepository.findById(id)
-                .orElseThrow(() -> new DocumentException("Document not found"));
-
-        if (!document.getVehicle().getOwner().getId().equals(userId)) {
-            throw new DocumentException("Document does not belong to user");
-        }
+        Document document = documentRepository.findByIdAndVehicleOwnerId(id, userId)
+                .orElseThrow(() -> new NotFoundException("Document not found"));
 
         return convertToContentDTO(document);
     }
@@ -76,14 +69,19 @@ public class DocumentService {
     @Transactional
     public void deleteDocument(Long id, Long userId) {
         log.debug("Deleting document {} for user: {}", id, userId);
-        Document document = documentRepository.findById(id)
-                .orElseThrow(() -> new DocumentException("Document not found"));
-
-        if (!document.getVehicle().getOwner().getId().equals(userId)) {
-            throw new DocumentException("Document does not belong to user");
-        }
+        Document document = documentRepository.findByIdAndVehicleOwnerId(id, userId)
+                .orElseThrow(() -> new NotFoundException("Document not found"));
 
         documentRepository.delete(document);
+    }
+
+    private static byte[] readContent(MultipartFile file) {
+        try {
+            return file.getBytes();
+        } catch (IOException e) {
+            // The upload could not be read on the server side: a 500, not the client's fault
+            throw new UncheckedIOException(e);
+        }
     }
 
     private DocumentDTO convertToDTO(Document document) {

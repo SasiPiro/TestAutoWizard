@@ -1,7 +1,9 @@
 package com.autowizard.service;
 
 import com.autowizard.dto.VehicleDTO;
-import com.autowizard.exception.VehicleException;
+import com.autowizard.exception.BusinessRuleException;
+import com.autowizard.exception.ConflictException;
+import com.autowizard.exception.NotFoundException;
 import com.autowizard.model.Vehicle;
 import com.autowizard.model.User;
 import com.autowizard.repository.VehicleRepository;
@@ -26,14 +28,14 @@ public class VehicleService {
     public VehicleDTO createVehicle(VehicleDTO vehicleDTO, Long userId) {
         log.debug("Creating vehicle for user: {}", userId);
         if (vehicleRepository.existsByLicensePlate(vehicleDTO.getLicensePlate())) {
-            throw new VehicleException("Vehicle with this license plate already exists");
+            throw new ConflictException("A vehicle with this license plate is already registered");
         }
         if (vehicleRepository.existsByVin(vehicleDTO.getVin())) {
-            throw new VehicleException("Vehicle with this VIN already exists");
+            throw new ConflictException("A vehicle with this VIN is already registered");
         }
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new VehicleException("User not found"));
+                .orElseThrow(() -> new NotFoundException("User not found"));
 
         Vehicle vehicle = new Vehicle();
         vehicle.setType(vehicleDTO.getType());
@@ -80,7 +82,7 @@ public class VehicleService {
         Vehicle vehicle = vehicleAccess.requireOwned(id, userId);
 
         if (newMileage < vehicle.getMileage()) {
-            throw new VehicleException("New mileage cannot be less than current mileage");
+            throw new BusinessRuleException("New mileage cannot be less than current mileage");
         }
 
         vehicle.setMileage(newMileage);

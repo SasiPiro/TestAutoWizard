@@ -1,203 +1,110 @@
 package com.autowizard.exception;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.Nullable;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.validation.FieldError;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
-import org.springframework.web.context.request.ServletWebRequest;
-import jakarta.persistence.EntityNotFoundException;
-import jakarta.validation.ConstraintViolationException;
-import java.util.UUID;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.dao.EmptyResultDataAccessException;
-import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.web.HttpRequestMethodNotSupportedException;
-import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
-import org.springframework.web.servlet.NoHandlerFoundException;
-import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import java.net.URI;
+import java.time.Instant;
+
+/**
+ * Turns every exception into an RFC 7807 problem detail with the status that matches its
+ * meaning, and logs it once.
+ *
+ * <p>
+ * Spring MVC's own exceptions (unknown route, unreadable body, wrong parameter type,
+ * unsupported method, ...) are handled by {@link ResponseEntityExceptionHandler} with
+ * their standard status; {@link #handleExceptionInternal} adds the common properties and
+ * the log line to those too. A 500 never contains the exception message: it may hold SQL,
+ * host names or other internals.
+ * </p>
+ */
 @Slf4j
 @RestControllerAdvice
-public class GlobalExceptionHandler {
+public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
-    private static final String ERROR_MESSAGE_PREFIX = "ERR_";
-    private static final boolean INCLUDE_STACK_TRACE = true; // Set to false in production
+    static final String INVALID_CREDENTIALS = "Invalid email or password";
 
-    //TODO SISTEMARE LE EXCEPTION SPECIALMENTE IN TASK SERVICE
-
-    private ErrorResponse createErrorResponse(HttpStatus status, String message, WebRequest request, String errorCode) {
-        String path = ((ServletWebRequest) request).getRequest().getRequestURI();
-        String traceId = UUID.randomUUID().toString();
-        
-        ErrorResponse error = new ErrorResponse(
-            status.value(),
-            message,
-            System.currentTimeMillis()
-        );
-        error.setPath(path);
-        error.setTraceId(traceId);
-        error.setErrorCode(errorCode);
-        
-        // Log dell'errore con dettagli strutturati
-        Map<String, Object> logDetails = new HashMap<>();
-        logDetails.put("traceId", traceId);
-        logDetails.put("path", path);
-        logDetails.put("status", status.value());
-        logDetails.put("errorCode", errorCode);
-        logDetails.put("timestamp", LocalDateTime.now());
-        
-        log.error("Error occurred: {}", logDetails);
-        
-        return error;
+    @ExceptionHandler(BusinessException.class)
+    public ProblemDetail handleBusinessException(BusinessException ex, HttpServletRequest request) {
+        return clientError(ex, ex.getStatus(), ex.getTitle(), ex.getType(), ex.getMessage(), request);
     }
 
-    @ExceptionHandler(ReminderException.class)
-    public ResponseEntity<ErrorResponse> handleReminderException(ReminderException ex, WebRequest request) {
-        return ResponseEntity
-            .status(HttpStatus.BAD_REQUEST)
-            .body(createErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request, ERROR_MESSAGE_PREFIX + "REMINDER"));
-    }
-
-    @ExceptionHandler(MaintenanceTaskException.class)
-    public ResponseEntity<ErrorResponse> handleMaintenanceTaskException(MaintenanceTaskException ex, WebRequest request) {
-        return ResponseEntity
-            .status(HttpStatus.BAD_REQUEST)
-            .body(createErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request, ERROR_MESSAGE_PREFIX + "TASK"));
-    }
-
-    @ExceptionHandler(VehicleException.class)
-    public ResponseEntity<ErrorResponse> handleVehicleException(VehicleException ex, WebRequest request) {
-        return ResponseEntity
-            .status(HttpStatus.BAD_REQUEST)
-            .body(createErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request, ERROR_MESSAGE_PREFIX + "VEHICLE"));
-    }
-
-    @ExceptionHandler(DocumentException.class)
-    public ResponseEntity<ErrorResponse> handleDocumentException(DocumentException ex, WebRequest request) {
-        return ResponseEntity
-            .status(HttpStatus.BAD_REQUEST)
-            .body(createErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request, ERROR_MESSAGE_PREFIX + "DOCUMENT"));
-    }
-
-    @ExceptionHandler(NotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleNotFoundException(NotFoundException ex, WebRequest request) {
-        return ResponseEntity
-            .status(HttpStatus.NOT_FOUND)
-            .body(createErrorResponse(HttpStatus.NOT_FOUND, ex.getMessage(), request, ERROR_MESSAGE_PREFIX + "NOT_FOUND"));
-    }
-
-    @ExceptionHandler(EntityNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleEntityNotFoundException(EntityNotFoundException ex, WebRequest request) {
-        return ResponseEntity
-            .status(HttpStatus.NOT_FOUND)
-            .body(createErrorResponse(HttpStatus.NOT_FOUND, "Risorsa non trovata", request, ERROR_MESSAGE_PREFIX + "NOT_FOUND"));
-    }
-
-    @ExceptionHandler(EmptyResultDataAccessException.class)
-    public ResponseEntity<ErrorResponse> handleEmptyResultDataAccessException(EmptyResultDataAccessException ex, WebRequest request) {
-        return ResponseEntity
-            .status(HttpStatus.NOT_FOUND)
-            .body(createErrorResponse(HttpStatus.NOT_FOUND, "Risorsa non trovata", request, ERROR_MESSAGE_PREFIX + "NOT_FOUND"));
-    }
-
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> handleValidationExceptions(MethodArgumentNotValidException ex, WebRequest request) {
-        ErrorResponse error = createErrorResponse(HttpStatus.BAD_REQUEST, "Errore di validazione", request, ERROR_MESSAGE_PREFIX + "VALIDATION");
-        
-        ex.getBindingResult().getAllErrors().forEach((err) -> {
-            String fieldName = ((FieldError) err).getField();
-            String errorMessage = err.getDefaultMessage();
-            error.addDetail(fieldName + ": " + errorMessage);
-        });
-        
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
-    }
-
-    @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<ErrorResponse> handleConstraintViolationException(ConstraintViolationException ex, WebRequest request) {
-        ErrorResponse error = createErrorResponse(HttpStatus.BAD_REQUEST, "Errore di validazione dei vincoli", request, ERROR_MESSAGE_PREFIX + "CONSTRAINT");
-        
-        ex.getConstraintViolations().forEach(violation -> {
-            error.addDetail(violation.getPropertyPath() + ": " + violation.getMessage());
-        });
-        
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
-    }
-
-    @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<ErrorResponse> handleDataIntegrityViolationException(DataIntegrityViolationException ex, WebRequest request) {
-        return ResponseEntity
-            .status(HttpStatus.CONFLICT)
-            .body(createErrorResponse(HttpStatus.CONFLICT, "Violazione dei vincoli di integrità dei dati", request, ERROR_MESSAGE_PREFIX + "INTEGRITY"));
-    }
-
-    @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ErrorResponse> handleHttpMessageNotReadableException(HttpMessageNotReadableException ex, WebRequest request) {
-        return ResponseEntity
-            .status(HttpStatus.BAD_REQUEST)
-            .body(createErrorResponse(HttpStatus.BAD_REQUEST, "Richiesta non valida", request, ERROR_MESSAGE_PREFIX + "INVALID_REQUEST"));
-    }
-
-    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<ErrorResponse> handleMethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException ex, WebRequest request) {
-        return ResponseEntity
-            .status(HttpStatus.BAD_REQUEST)
-            .body(createErrorResponse(HttpStatus.BAD_REQUEST, "Tipo di parametro non valido", request, ERROR_MESSAGE_PREFIX + "TYPE_MISMATCH"));
-    }
-
-    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-    public ResponseEntity<ErrorResponse> handleHttpRequestMethodNotSupportedException(HttpRequestMethodNotSupportedException ex, WebRequest request) {
-        return ResponseEntity
-            .status(HttpStatus.METHOD_NOT_ALLOWED)
-            .body(createErrorResponse(HttpStatus.METHOD_NOT_ALLOWED, "Metodo non supportato", request, ERROR_MESSAGE_PREFIX + "METHOD_NOT_ALLOWED"));
-    }
-
-    @ExceptionHandler(NoHandlerFoundException.class)
-    public ResponseEntity<ErrorResponse> handleNoHandlerFoundException(NoHandlerFoundException ex, WebRequest request) {
-        return ResponseEntity
-            .status(HttpStatus.NOT_FOUND)
-            .body(createErrorResponse(HttpStatus.NOT_FOUND, "Endpoint non trovato", request, ERROR_MESSAGE_PREFIX + "NOT_FOUND"));
-    }
-
+    /**
+     * Login failures. One generic message for unknown email and wrong password, so the
+     * endpoint cannot be used to find out which emails are registered.
+     */
     @ExceptionHandler(AuthenticationException.class)
-    public ResponseEntity<ErrorResponse> handleAuthenticationException(AuthenticationException ex, WebRequest request) {
-        return ResponseEntity
-            .status(HttpStatus.UNAUTHORIZED)
-            .body(createErrorResponse(HttpStatus.UNAUTHORIZED, "Errore di autenticazione", request, ERROR_MESSAGE_PREFIX + "AUTH"));
-    }
-
-    @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<ErrorResponse> handleBadCredentialsException(BadCredentialsException ex, WebRequest request) {
-        return ResponseEntity
-            .status(HttpStatus.UNAUTHORIZED)
-            .body(createErrorResponse(HttpStatus.UNAUTHORIZED, "Credenziali non valide", request, ERROR_MESSAGE_PREFIX + "BAD_CREDENTIALS"));
+    public ProblemDetail handleAuthentication(AuthenticationException ex) {
+        return problem(HttpStatus.UNAUTHORIZED, "Unauthorized", ErrorTypes.UNAUTHORIZED, INVALID_CREDENTIALS);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ErrorResponse> handleAccessDeniedException(AccessDeniedException ex, WebRequest request) {
-        return ResponseEntity
-            .status(HttpStatus.FORBIDDEN)
-            .body(createErrorResponse(HttpStatus.FORBIDDEN, "Accesso negato", request, ERROR_MESSAGE_PREFIX + "FORBIDDEN"));
+    public ProblemDetail handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
+        return clientError(ex, HttpStatus.FORBIDDEN, "Forbidden", ErrorTypes.FORBIDDEN, "Access denied", request);
+    }
+
+    /** A unique constraint caught what a service check missed (e.g. two concurrent requests). */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ProblemDetail handleDataIntegrity(DataIntegrityViolationException ex, HttpServletRequest request) {
+        return clientError(ex, HttpStatus.CONFLICT, "Conflict with existing data", ErrorTypes.CONFLICT,
+                "The request conflicts with existing data", request);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGenericException(Exception ex, WebRequest request) {
-        // In produzione, non esporre i dettagli dell'errore
-        String message = INCLUDE_STACK_TRACE ? 
-            "Si è verificato un errore imprevisto: " + ex.getMessage() :
-            "Si è verificato un errore imprevisto. Riprova più tardi.";
-
-        return ResponseEntity
-            .status(HttpStatus.INTERNAL_SERVER_ERROR)
-            .body(createErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, message, request, ERROR_MESSAGE_PREFIX + "INTERNAL"));
+    public ProblemDetail handleUnexpected(Exception ex, HttpServletRequest request) {
+        // The only ERROR with stack trace: a real bug or an infrastructure failure
+        log.error("[HTTP_SERVER_ERROR] status=500 method={} path={} exception={}",
+                request.getMethod(), request.getRequestURI(), ex.getClass().getName(), ex);
+        return problem(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", ErrorTypes.INTERNAL,
+                "An unexpected error occurred. Contact support if the problem persists");
     }
-} 
+
+    /** Spring MVC exceptions: same properties and the same single log line as ours. */
+    @Override
+    protected ResponseEntity<Object> handleExceptionInternal(Exception ex, @Nullable Object body, HttpHeaders headers,
+                                                             HttpStatusCode statusCode, WebRequest request) {
+        if (statusCode.is5xxServerError()) {
+            log.error("[HTTP_SERVER_ERROR] status={} exception={}", statusCode.value(), ex.getClass().getName(), ex);
+        } else {
+            log.info("[HTTP_CLIENT_ERROR] status={} exception={}", statusCode.value(), ex.getClass().getSimpleName());
+        }
+        if (body instanceof ProblemDetail problemDetail) {
+            addCommonProperties(problemDetail);
+        }
+        return super.handleExceptionInternal(ex, body, headers, statusCode, request);
+    }
+
+    // 4xx = the client sent something the API rejects: expected, not an application error.
+    // INFO without stack trace, so WARN and ERROR stay meaningful.
+    private ProblemDetail clientError(Exception ex, HttpStatus status, String title, URI type, String detail,
+                                      HttpServletRequest request) {
+        log.info("[HTTP_CLIENT_ERROR] status={} method={} path={} exception={} detail=\"{}\"",
+                status.value(), request.getMethod(), request.getRequestURI(), ex.getClass().getSimpleName(), detail);
+        return problem(status, title, type, detail);
+    }
+
+    private static ProblemDetail problem(HttpStatus status, String title, URI type, String detail) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(status, detail);
+        problemDetail.setTitle(title);
+        problemDetail.setType(type);
+        addCommonProperties(problemDetail);
+        return problemDetail;
+    }
+
+    private static void addCommonProperties(ProblemDetail problemDetail) {
+        problemDetail.setProperty("timestamp", Instant.now());
+    }
+}
