@@ -1,9 +1,11 @@
 package com.autowizard.controller;
 
-import com.autowizard.dto.MaintenanceTaskDTO;
+import com.autowizard.dto.MaintenanceTaskRequest;
+import com.autowizard.dto.MaintenanceTaskResponse;
 import com.autowizard.security.CurrentUser;
 import com.autowizard.security.UserPrincipal;
 import com.autowizard.service.MaintenanceTaskService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -19,15 +21,15 @@ public class MaintenanceTaskController {
     private final MaintenanceTaskService maintenanceTaskService;
 
     @PostMapping
-    public ResponseEntity<MaintenanceTaskDTO> createTask(
-            @RequestBody MaintenanceTaskDTO taskDTO,
+    public ResponseEntity<MaintenanceTaskResponse> createTask(
+            @Valid @RequestBody MaintenanceTaskRequest request,
             @CurrentUser UserPrincipal currentUser) {
         log.debug("Creating maintenance task for user: {}", currentUser.getId());
-        return ResponseEntity.ok(maintenanceTaskService.createTask(taskDTO, currentUser.getId()));
+        return ResponseEntity.ok(maintenanceTaskService.createTask(request, currentUser.getId()));
     }
 
     @GetMapping("/vehicle/{vehicleId}")
-    public ResponseEntity<List<MaintenanceTaskDTO>> getTasksByVehicle(
+    public ResponseEntity<List<MaintenanceTaskResponse>> getTasksByVehicle(
             @PathVariable Long vehicleId,
             @CurrentUser UserPrincipal currentUser) {
         log.debug("Fetching tasks for vehicle {} and user: {}", vehicleId, currentUser.getId());
@@ -35,14 +37,14 @@ public class MaintenanceTaskController {
     }
 
     @GetMapping("/pending/user")
-    public ResponseEntity<List<MaintenanceTaskDTO>> getPendingTasksByUser(
+    public ResponseEntity<List<MaintenanceTaskResponse>> getPendingTasksByUser(
             @CurrentUser UserPrincipal currentUser) {
         log.debug("Getting pending tasks for user: {}", currentUser.getId());
         return ResponseEntity.ok(maintenanceTaskService.getPendingTasksByUser(currentUser.getId()));
     }
 
     @GetMapping("/pending/vehicle/{vehicleId}")
-    public ResponseEntity<List<MaintenanceTaskDTO>> getPendingTasksByVehicle(
+    public ResponseEntity<List<MaintenanceTaskResponse>> getPendingTasksByVehicle(
             @PathVariable Long vehicleId,
             @CurrentUser UserPrincipal currentUser) {
         log.debug("Getting pending tasks for vehicle: {} and user: {}", vehicleId, currentUser.getId());
@@ -50,14 +52,14 @@ public class MaintenanceTaskController {
     }
 
     @GetMapping("/overdue/user")
-    public ResponseEntity<List<MaintenanceTaskDTO>> getOverdueTasksByUser(
+    public ResponseEntity<List<MaintenanceTaskResponse>> getOverdueTasksByUser(
             @CurrentUser UserPrincipal currentUser) {
         log.debug("Getting overdue tasks for user: {}", currentUser.getId());
         return ResponseEntity.ok(maintenanceTaskService.getOverdueTasksByUser(currentUser.getId()));
     }
 
     @GetMapping("/overdue/vehicle/{vehicleId}")
-    public ResponseEntity<List<MaintenanceTaskDTO>> getOverdueTasksByVehicle(
+    public ResponseEntity<List<MaintenanceTaskResponse>> getOverdueTasksByVehicle(
             @PathVariable Long vehicleId,
             @CurrentUser UserPrincipal currentUser) {
         log.debug("Getting overdue tasks for vehicle: {} and user: {}", vehicleId, currentUser.getId());
@@ -65,14 +67,14 @@ public class MaintenanceTaskController {
     }
 
     @GetMapping("/completed/user")
-    public ResponseEntity<List<MaintenanceTaskDTO>> getCompletedTasksByUser(
+    public ResponseEntity<List<MaintenanceTaskResponse>> getCompletedTasksByUser(
             @CurrentUser UserPrincipal currentUser) {
         log.debug("Getting completed tasks for user: {}", currentUser.getId());
         return ResponseEntity.ok(maintenanceTaskService.getCompletedTasksByUser(currentUser.getId()));
     }
 
     @GetMapping("/completed/vehicle/{vehicleId}")
-    public ResponseEntity<List<MaintenanceTaskDTO>> getCompletedTasksByVehicle(
+    public ResponseEntity<List<MaintenanceTaskResponse>> getCompletedTasksByVehicle(
             @PathVariable Long vehicleId,
             @CurrentUser UserPrincipal currentUser) {
         log.debug("Getting completed tasks for vehicle: {} and user: {}", vehicleId, currentUser.getId());
@@ -80,7 +82,7 @@ public class MaintenanceTaskController {
     }
 
     @GetMapping("/user")
-    public ResponseEntity<List<MaintenanceTaskDTO>> getAllTasksByUser(
+    public ResponseEntity<List<MaintenanceTaskResponse>> getAllTasksByUser(
             @CurrentUser UserPrincipal currentUser) {
         log.debug("Getting all tasks for user: {}", currentUser.getId());
         return ResponseEntity.ok(maintenanceTaskService.getAllTasksByUser(currentUser.getId()));

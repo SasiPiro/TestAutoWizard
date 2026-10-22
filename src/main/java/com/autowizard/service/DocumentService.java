@@ -1,7 +1,7 @@
 package com.autowizard.service;
 
-import com.autowizard.dto.DocumentContentDTO;
-import com.autowizard.dto.DocumentDTO;
+import com.autowizard.dto.DocumentContent;
+import com.autowizard.dto.DocumentResponse;
 import com.autowizard.exception.NotFoundException;
 import com.autowizard.model.Document;
 import com.autowizard.model.User;
@@ -28,7 +28,7 @@ public class DocumentService {
     private final VehicleAccess vehicleAccess;
     private final UserRepository userRepository;
     @Transactional
-    public DocumentDTO uploadDocument(MultipartFile file, Document.DocumentType type, Long vehicleId, Long userId) {
+    public DocumentResponse uploadDocument(MultipartFile file, Document.DocumentType type, Long vehicleId, Long userId) {
         log.debug("Uploading document for vehicle {} and user: {}", vehicleId, userId);
         Vehicle vehicle = vehicleAccess.requireOwned(vehicleId, userId);
 
@@ -44,25 +44,25 @@ public class DocumentService {
         document.setUploadDate(LocalDateTime.now());
         document.setUser(user);
 
-        return convertToDTO(documentRepository.save(document));
+        return toResponse(documentRepository.save(document));
     }
 
     @Transactional(readOnly = true)
-    public DocumentContentDTO getDocument(Long id, Long userId) {
+    public DocumentContent getDocument(Long id, Long userId) {
         log.debug("Fetching document {} for user: {}", id, userId);
         Document document = documentRepository.findByIdAndVehicleOwnerId(id, userId)
                 .orElseThrow(() -> new NotFoundException("Document not found"));
 
-        return convertToContentDTO(document);
+        return toContent(document);
     }
 
     @Transactional(readOnly = true)
-    public List<DocumentDTO> getDocumentsByVehicleId(Long vehicleId, Long userId) {
+    public List<DocumentResponse> getDocumentsByVehicleId(Long vehicleId, Long userId) {
         log.debug("Fetching documents for vehicle {} and user: {}", vehicleId, userId);
         vehicleAccess.requireOwned(vehicleId, userId);
 
         return documentRepository.findByVehicleId(vehicleId).stream()
-                .map(this::convertToDTO)
+                .map(this::toResponse)
                 .collect(Collectors.toList());
     }
 
@@ -84,22 +84,12 @@ public class DocumentService {
         }
     }
 
-    private DocumentDTO convertToDTO(Document document) {
-        DocumentDTO dto = new DocumentDTO();
-        dto.setId(document.getId());
-        dto.setName(document.getName());
-        dto.setType(document.getType());
-        dto.setContentType(document.getContentType());
-        dto.setUploadDate(document.getUploadDate());
-        dto.setVehicleId(document.getVehicle().getId());
-        return dto;
+    private DocumentResponse toResponse(Document document) {
+        return new DocumentResponse(document.getId(), document.getName(), document.getType(),
+                document.getContentType(), document.getUploadDate(), document.getVehicle().getId());
     }
 
-    private DocumentContentDTO convertToContentDTO(Document document) {
-        DocumentContentDTO dto = new DocumentContentDTO();
-        dto.setName(document.getName());
-        dto.setContent(document.getContent());
-        dto.setContentType(document.getContentType());
-        return dto;
+    private DocumentContent toContent(Document document) {
+        return new DocumentContent(document.getName(), document.getContentType(), document.getContent());
     }
 }

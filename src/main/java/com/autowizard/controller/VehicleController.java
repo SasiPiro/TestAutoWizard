@@ -1,9 +1,12 @@
 package com.autowizard.controller;
 
-import com.autowizard.dto.VehicleDTO;
+import com.autowizard.dto.VehicleRequest;
+import com.autowizard.dto.VehicleResponse;
 import com.autowizard.security.CurrentUser;
 import com.autowizard.security.UserPrincipal;
 import com.autowizard.service.VehicleService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -19,15 +22,15 @@ public class VehicleController {
     private final VehicleService vehicleService;
 
     @PostMapping
-    public ResponseEntity<VehicleDTO> createVehicle(
-            @RequestBody VehicleDTO vehicleDTO,
+    public ResponseEntity<VehicleResponse> createVehicle(
+            @Valid @RequestBody VehicleRequest request,
             @CurrentUser UserPrincipal currentUser) {
         log.debug("Creating vehicle for user: {}", currentUser.getId());
-        return ResponseEntity.ok(vehicleService.createVehicle(vehicleDTO, currentUser.getId()));
+        return ResponseEntity.ok(vehicleService.createVehicle(request, currentUser.getId()));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<VehicleDTO> getVehicleById(
+    public ResponseEntity<VehicleResponse> getVehicleById(
             @PathVariable Long id,
             @CurrentUser UserPrincipal currentUser) {
         log.debug("Fetching vehicle {} for user: {}", id, currentUser.getId());
@@ -44,16 +47,16 @@ public class VehicleController {
     }
 
     @GetMapping
-    public ResponseEntity<List<VehicleDTO>> getVehicles(
+    public ResponseEntity<List<VehicleResponse>> getVehicles(
             @CurrentUser UserPrincipal currentUser) {
         log.debug("Fetching all vehicles for user: {}", currentUser.getId());
         return ResponseEntity.ok(vehicleService.getVehiclesByUserId(currentUser.getId()));
     }
 
     @PatchMapping("/{id}/mileage")
-    public ResponseEntity<VehicleDTO> updateVehicleMileage(
+    public ResponseEntity<VehicleResponse> updateVehicleMileage(
             @PathVariable Long id,
-            @RequestParam Long newMileage,
+            @RequestParam @PositiveOrZero Long newMileage,
             @CurrentUser UserPrincipal currentUser) {
         log.debug("Updating mileage for vehicle {} to {} for user: {}", id, newMileage, currentUser.getId());
         return ResponseEntity.ok(vehicleService.updateVehicleMileage(id, newMileage, currentUser.getId()));

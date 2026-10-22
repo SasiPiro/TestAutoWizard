@@ -1,6 +1,7 @@
 package com.autowizard.service;
 
-import com.autowizard.dto.VehicleDTO;
+import com.autowizard.dto.VehicleRequest;
+import com.autowizard.dto.VehicleResponse;
 import com.autowizard.exception.BusinessRuleException;
 import com.autowizard.exception.ConflictException;
 import com.autowizard.exception.NotFoundException;
@@ -25,12 +26,12 @@ public class VehicleService {
     private final VehicleAccess vehicleAccess;
 
     @Transactional
-    public VehicleDTO createVehicle(VehicleDTO vehicleDTO, Long userId) {
+    public VehicleResponse createVehicle(VehicleRequest request, Long userId) {
         log.debug("Creating vehicle for user: {}", userId);
-        if (vehicleRepository.existsByLicensePlate(vehicleDTO.getLicensePlate())) {
+        if (vehicleRepository.existsByLicensePlate(request.licensePlate())) {
             throw new ConflictException("A vehicle with this license plate is already registered");
         }
-        if (vehicleRepository.existsByVin(vehicleDTO.getVin())) {
+        if (vehicleRepository.existsByVin(request.vin())) {
             throw new ConflictException("A vehicle with this VIN is already registered");
         }
 
@@ -38,34 +39,34 @@ public class VehicleService {
                 .orElseThrow(() -> new NotFoundException("User not found"));
 
         Vehicle vehicle = new Vehicle();
-        vehicle.setType(vehicleDTO.getType());
-        vehicle.setBrand(vehicleDTO.getBrand());
-        vehicle.setModel(vehicleDTO.getModel());
-        vehicle.setLicensePlate(vehicleDTO.getLicensePlate());
-        vehicle.setVin(vehicleDTO.getVin());
-        vehicle.setMileage(vehicleDTO.getMileage());
-        vehicle.setRegistrationYear(vehicleDTO.getRegistrationYear());
-        vehicle.setFuel(vehicleDTO.getFuel());
+        vehicle.setType(request.type());
+        vehicle.setBrand(request.brand());
+        vehicle.setModel(request.model());
+        vehicle.setLicensePlate(request.licensePlate());
+        vehicle.setVin(request.vin());
+        vehicle.setMileage(request.mileage());
+        vehicle.setRegistrationYear(request.registrationYear());
+        vehicle.setFuel(request.fuel());
         vehicle.setOwner(user);
 
         Vehicle savedVehicle = vehicleRepository.save(vehicle);
-        return convertToDTO(savedVehicle);
+        return toResponse(savedVehicle);
     }
 
     @Transactional(readOnly = true)
-    public List<VehicleDTO> getVehiclesByUserId(Long userId) {
+    public List<VehicleResponse> getVehiclesByUserId(Long userId) {
         log.debug("Fetching all vehicles for user: {}", userId);
         return vehicleRepository.findByOwnerId(userId).stream()
-                .map(this::convertToDTO)
+                .map(this::toResponse)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public VehicleDTO getVehicleById(Long id, Long userId) {
+    public VehicleResponse getVehicleById(Long id, Long userId) {
         log.debug("Fetching vehicle {} for user: {}", id, userId);
         Vehicle vehicle = vehicleAccess.requireOwned(id, userId);
 
-        return convertToDTO(vehicle);
+        return toResponse(vehicle);
     }
 
     @Transactional
@@ -77,7 +78,7 @@ public class VehicleService {
     }
 
     @Transactional
-    public VehicleDTO updateVehicleMileage(Long id, Long newMileage, Long userId) {
+    public VehicleResponse updateVehicleMileage(Long id, Long newMileage, Long userId) {
         log.debug("Updating mileage for vehicle {} to {} for user: {}", id, newMileage, userId);
         Vehicle vehicle = vehicleAccess.requireOwned(id, userId);
 
@@ -87,20 +88,12 @@ public class VehicleService {
 
         vehicle.setMileage(newMileage);
         Vehicle updatedVehicle = vehicleRepository.save(vehicle);
-        return convertToDTO(updatedVehicle);
+        return toResponse(updatedVehicle);
     }
 
-    private VehicleDTO convertToDTO(Vehicle vehicle) {
-        VehicleDTO dto = new VehicleDTO();
-        dto.setId(vehicle.getId());
-        dto.setType(vehicle.getType());
-        dto.setBrand(vehicle.getBrand());
-        dto.setModel(vehicle.getModel());
-        dto.setLicensePlate(vehicle.getLicensePlate());
-        dto.setVin(vehicle.getVin());
-        dto.setMileage(vehicle.getMileage());
-        dto.setRegistrationYear(vehicle.getRegistrationYear());
-        dto.setFuel(vehicle.getFuel());
-        return dto;
+    private VehicleResponse toResponse(Vehicle vehicle) {
+        return new VehicleResponse(vehicle.getId(), vehicle.getType(), vehicle.getBrand(), vehicle.getModel(),
+                vehicle.getLicensePlate(), vehicle.getVin(), vehicle.getMileage(), vehicle.getRegistrationYear(),
+                vehicle.getFuel());
     }
 } 

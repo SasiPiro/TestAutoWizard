@@ -1,6 +1,7 @@
 package com.autowizard.service;
 
-import com.autowizard.dto.MaintenanceTaskDTO;
+import com.autowizard.dto.MaintenanceTaskRequest;
+import com.autowizard.dto.MaintenanceTaskResponse;
 import com.autowizard.model.MaintenanceTask;
 import com.autowizard.model.Vehicle;
 import com.autowizard.repository.MaintenanceTaskRepository;
@@ -20,110 +21,99 @@ public class MaintenanceTaskService {
     private final VehicleAccess vehicleAccess;
 
     @Transactional
-    public MaintenanceTaskDTO createTask(MaintenanceTaskDTO taskDTO, Long userId) {
+    public MaintenanceTaskResponse createTask(MaintenanceTaskRequest request, Long userId) {
         log.debug("Creating maintenance task for user: {}", userId);
-        Vehicle vehicle = vehicleAccess.requireOwned(taskDTO.getVehicleId(), userId);
+        Vehicle vehicle = vehicleAccess.requireOwned(request.vehicleId(), userId);
 
         MaintenanceTask task = new MaintenanceTask();
-        task.setTitle(taskDTO.getTitle());
-        task.setDescription(taskDTO.getDescription());
-        task.setScheduledDate(taskDTO.getScheduledDate());
+        task.setTitle(request.title());
+        task.setDescription(request.description());
+        task.setScheduledDate(request.scheduledDate());
         task.setStatus(MaintenanceTask.TaskStatus.PENDING);
-        task.setPriority(taskDTO.getPriority());
-        task.setScheduledMileage(taskDTO.getScheduledMileage());
-        task.setEstimatedCost(taskDTO.getEstimatedCost());
-        task.setNotes(taskDTO.getNotes());
+        task.setPriority(request.priority());
+        task.setScheduledMileage(request.scheduledMileage());
+        task.setEstimatedCost(request.estimatedCost());
+        task.setNotes(request.notes());
         task.setVehicle(vehicle);
 
         MaintenanceTask savedTask = maintenanceTaskRepository.save(task);
-        return convertToDTO(savedTask);
+        return toResponse(savedTask);
     }
 
     @Transactional(readOnly = true)
-    public List<MaintenanceTaskDTO> getTasksByVehicleId(Long vehicleId, Long userId) {
+    public List<MaintenanceTaskResponse> getTasksByVehicleId(Long vehicleId, Long userId) {
         log.debug("Fetching tasks for vehicle {} and user: {}", vehicleId, userId);
         vehicleAccess.requireOwned(vehicleId, userId);
 
         return maintenanceTaskRepository.findByVehicleId(vehicleId).stream()
-                .map(this::convertToDTO)
+                .map(this::toResponse)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public List<MaintenanceTaskDTO> getPendingTasksByUser(Long userId) {
+    public List<MaintenanceTaskResponse> getPendingTasksByUser(Long userId) {
         return maintenanceTaskRepository.findByStatusAndVehicleOwnerId(MaintenanceTask.TaskStatus.PENDING, userId)
                 .stream()
-                .map(this::convertToDTO)
+                .map(this::toResponse)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public List<MaintenanceTaskDTO> getPendingTasksByVehicle(Long vehicleId, Long userId) {
+    public List<MaintenanceTaskResponse> getPendingTasksByVehicle(Long vehicleId, Long userId) {
         vehicleAccess.requireOwned(vehicleId, userId);
         return maintenanceTaskRepository.findByStatusAndVehicleId(MaintenanceTask.TaskStatus.PENDING, vehicleId)
                 .stream()
-                .map(this::convertToDTO)
+                .map(this::toResponse)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public List<MaintenanceTaskDTO> getOverdueTasksByUser(Long userId) {
+    public List<MaintenanceTaskResponse> getOverdueTasksByUser(Long userId) {
         return maintenanceTaskRepository.findByStatusAndVehicleOwnerId(MaintenanceTask.TaskStatus.OVERDUE, userId)
                 .stream()
-                .map(this::convertToDTO)
+                .map(this::toResponse)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public List<MaintenanceTaskDTO> getOverdueTasksByVehicle(Long vehicleId, Long userId) {
+    public List<MaintenanceTaskResponse> getOverdueTasksByVehicle(Long vehicleId, Long userId) {
         vehicleAccess.requireOwned(vehicleId, userId);
         return maintenanceTaskRepository.findByStatusAndVehicleId(MaintenanceTask.TaskStatus.OVERDUE, vehicleId)
                 .stream()
-                .map(this::convertToDTO)
+                .map(this::toResponse)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public List<MaintenanceTaskDTO> getCompletedTasksByUser(Long userId) {
+    public List<MaintenanceTaskResponse> getCompletedTasksByUser(Long userId) {
         return maintenanceTaskRepository.findByStatusAndVehicleOwnerId(MaintenanceTask.TaskStatus.COMPLETED, userId)
                 .stream()
-                .map(this::convertToDTO)
+                .map(this::toResponse)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public List<MaintenanceTaskDTO> getCompletedTasksByVehicle(Long vehicleId, Long userId) {
+    public List<MaintenanceTaskResponse> getCompletedTasksByVehicle(Long vehicleId, Long userId) {
         vehicleAccess.requireOwned(vehicleId, userId);
         return maintenanceTaskRepository.findByStatusAndVehicleId(MaintenanceTask.TaskStatus.COMPLETED, vehicleId)
                 .stream()
-                .map(this::convertToDTO)
+                .map(this::toResponse)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public List<MaintenanceTaskDTO> getAllTasksByUser(Long userId) {
+    public List<MaintenanceTaskResponse> getAllTasksByUser(Long userId) {
         return maintenanceTaskRepository.findByVehicleOwnerId(userId)
                 .stream()
-                .map(this::convertToDTO)
+                .map(this::toResponse)
                 .collect(Collectors.toList());
     }
 
-    private MaintenanceTaskDTO convertToDTO(MaintenanceTask task) {
-        MaintenanceTaskDTO dto = new MaintenanceTaskDTO();
-        dto.setId(task.getId());
-        dto.setTitle(task.getTitle());
-        dto.setDescription(task.getDescription());
-        dto.setScheduledDate(task.getScheduledDate());
-        dto.setStatus(task.getStatus());
-        dto.setPriority(task.getPriority());
-        dto.setCompletionDate(task.getCompletionDate());
-        dto.setNotes(task.getNotes());
-        dto.setEstimatedCost(task.getEstimatedCost());
-        dto.setActualCost(task.getActualCost());
-        dto.setScheduledMileage(task.getScheduledMileage());
-        dto.setCompletionMileage(task.getCompletionMileage());
-        dto.setVehicleId(task.getVehicle().getId());
-        return dto;
+    private MaintenanceTaskResponse toResponse(MaintenanceTask task) {
+        return new MaintenanceTaskResponse(task.getId(), task.getTitle(), task.getDescription(),
+                task.getScheduledDate(), task.getStatus(), task.getPriority(), task.getCompletionDate(),
+                task.getNotes(), task.getEstimatedCost(), task.getActualCost(), task.getScheduledMileage(),
+                task.getCompletionMileage(), task.getVehicle().getId());
     }
 
     //TODO. funzione che setta actualCost (pop-up che si apre quando la task passa a COMPELETED) (utente completa la task)

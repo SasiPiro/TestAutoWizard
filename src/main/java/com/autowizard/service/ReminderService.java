@@ -1,6 +1,6 @@
 package com.autowizard.service;
 
-import com.autowizard.dto.ReminderDTO;
+import com.autowizard.dto.ReminderResponse;
 import com.autowizard.exception.NotFoundException;
 import com.autowizard.model.MaintenanceTask;
 import com.autowizard.model.Reminder;
@@ -34,7 +34,7 @@ public class ReminderService {
     }
 
     @Transactional
-    public Set<ReminderDTO> generatePendingTaskReminders(Long userId) {
+    public Set<ReminderResponse> generatePendingTaskReminders(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("User not found"));
 
@@ -56,12 +56,12 @@ public class ReminderService {
         // Recupera e ordina i reminder generati per l'utente
         return reminderRepository.findByUserIdAndTypeAndNotifiedFalseOrderByNotificationDateDesc(userId, Reminder.ReminderType.PENDING_TASKS)
                 .stream()
-                .map(this::convertToDTO)
+                .map(this::toResponse)
                 .collect(Collectors.toSet());
     }
 
     @Transactional
-    public Set<ReminderDTO> generateOverdueTaskReminders(Long userId) {
+    public Set<ReminderResponse> generateOverdueTaskReminders(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("User not found"));
 
@@ -83,26 +83,16 @@ public class ReminderService {
         // Recupera e ordina i reminder generati per l'utente
         return reminderRepository.findByUserIdAndTypeAndNotifiedFalseOrderByNotificationDateDesc(userId, Reminder.ReminderType.OVERDUE_TASKS)
                 .stream()
-                .map(this::convertToDTO)
+                .map(this::toResponse)
                 .collect(Collectors.toSet());
     }
 
-    private ReminderDTO convertToDTO(Reminder reminder) {
-        ReminderDTO dto = new ReminderDTO();
-        dto.setId(reminder.getId());
-        dto.setTitle(reminder.getTitle());
-        dto.setMessage(reminder.getMessage());
-        dto.setNotificationDate(reminder.getNotificationDate());
-        dto.setNotified(reminder.isNotified());
-        dto.setTaskIds(reminder.getTasks().stream()
-                .map(MaintenanceTask::getId)
-                .collect(Collectors.toSet()));
-        dto.setUserId(reminder.getUser().getId());
-        dto.setType(reminder.getType());
-        // Aggiungiamo gli ID dei veicoli associati alle task
-        dto.setVehicleIds(reminder.getTasks().stream()
-                .map(task -> task.getVehicle().getId())
-                .collect(Collectors.toSet()));
-        return dto;
+    private ReminderResponse toResponse(Reminder reminder) {
+        return new ReminderResponse(reminder.getId(), reminder.getTitle(), reminder.getMessage(),
+                reminder.getNotificationDate(), reminder.isNotified(),
+                reminder.getTasks().stream().map(MaintenanceTask::getId).collect(Collectors.toSet()),
+                reminder.getUser().getId(), reminder.getType(),
+                // The vehicles the reminded tasks belong to
+                reminder.getTasks().stream().map(task -> task.getVehicle().getId()).collect(Collectors.toSet()));
     }
 } 

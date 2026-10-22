@@ -11,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
@@ -18,6 +20,8 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 import java.net.URI;
 import java.time.Instant;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Turns every exception into an RFC 7807 problem detail with the status that matches its
@@ -70,6 +74,21 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 request.getMethod(), request.getRequestURI(), ex.getClass().getName(), ex);
         return problem(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", ErrorTypes.INTERNAL,
                 "An unexpected error occurred. Contact support if the problem persists");
+    }
+
+    /** Bean Validation on a request body: 400 with the message of each invalid field. */
+    @Override
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex, HttpHeaders headers,
+                                                                  HttpStatusCode status, WebRequest request) {
+        Map<String, String> errors = new TreeMap<>();
+        for (FieldError error : ex.getBindingResult().getFieldErrors()) {
+            errors.putIfAbsent(error.getField(), error.getDefaultMessage() != null ? error.getDefaultMessage() : "invalid");
+        }
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Validation failed");
+        problemDetail.setTitle("Invalid input data");
+        problemDetail.setType(ErrorTypes.VALIDATION);
+        problemDetail.setProperty("errors", errors);
+        return handleExceptionInternal(ex, problemDetail, headers, HttpStatus.BAD_REQUEST, request);
     }
 
     /** Spring MVC exceptions: same properties and the same single log line as ours. */

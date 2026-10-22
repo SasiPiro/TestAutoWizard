@@ -1,6 +1,6 @@
 package com.autowizard.controller;
 
-import com.autowizard.dto.ReminderDTO;
+import com.autowizard.dto.ReminderResponse;
 import com.autowizard.security.CurrentUser;
 import com.autowizard.security.UserPrincipal;
 import com.autowizard.service.ReminderService;
@@ -28,18 +28,18 @@ public class ReminderController {
     }
 
     @PostMapping("/generate/pending")
-    public ResponseEntity<Set<ReminderDTO>> generatePendingTaskReminders(
+    public ResponseEntity<Set<ReminderResponse>> generatePendingTaskReminders(
             @CurrentUser UserPrincipal currentUser) {
         log.debug("Generating pending task reminders for user: {}", currentUser.getId());
-        Set<ReminderDTO> reminders = reminderService.generatePendingTaskReminders(currentUser.getId());
+        Set<ReminderResponse> reminders = reminderService.generatePendingTaskReminders(currentUser.getId());
         return ResponseEntity.ok(reminders);
     }
 
     @PostMapping("/generate/overdue")
-    public ResponseEntity<Set<ReminderDTO>> generateOverdueTaskReminders(
+    public ResponseEntity<Set<ReminderResponse>> generateOverdueTaskReminders(
             @CurrentUser UserPrincipal currentUser) {
         log.debug("Generating overdue task reminders for user: {}", currentUser.getId());
-        Set<ReminderDTO> reminders = reminderService.generateOverdueTaskReminders(currentUser.getId());
+        Set<ReminderResponse> reminders = reminderService.generateOverdueTaskReminders(currentUser.getId());
         return ResponseEntity.ok(reminders);
     }
 } 

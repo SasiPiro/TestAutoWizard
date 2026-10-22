@@ -1,7 +1,7 @@
 package com.autowizard.controller;
 
-import com.autowizard.dto.DocumentContentDTO;
-import com.autowizard.dto.DocumentDTO;
+import com.autowizard.dto.DocumentContent;
+import com.autowizard.dto.DocumentResponse;
 import com.autowizard.model.Document;
 import com.autowizard.security.CurrentUser;
 import com.autowizard.security.UserPrincipal;
@@ -24,7 +24,7 @@ public class DocumentController {
     private final DocumentService documentService;
 
     @PostMapping("/upload")
-    public ResponseEntity<DocumentDTO> uploadDocument(
+    public ResponseEntity<DocumentResponse> uploadDocument(
             @RequestParam("file") MultipartFile file,
             @RequestParam("type") Document.DocumentType type,
             @RequestParam("vehicleId") Long vehicleId,
@@ -43,7 +43,7 @@ public class DocumentController {
     }
 
     @GetMapping("/vehicle/{vehicleId}")
-    public ResponseEntity<List<DocumentDTO>> getDocumentsByVehicle(
+    public ResponseEntity<List<DocumentResponse>> getDocumentsByVehicle(
             @PathVariable Long vehicleId,
             @CurrentUser UserPrincipal currentUser) {
         log.debug("Fetching documents for vehicle {} and user: {}", vehicleId, currentUser.getId());
@@ -55,13 +55,13 @@ public class DocumentController {
             @PathVariable Long id,
             @CurrentUser UserPrincipal currentUser) {
         log.debug("Downloading document {} for user: {}", id, currentUser.getId());
-        DocumentContentDTO document = documentService.getDocument(id, currentUser.getId());
+        DocumentContent document = documentService.getDocument(id, currentUser.getId());
         
         HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.parseMediaType(document.getContentType()));
-        headers.setContentDispositionFormData("attachment", document.getName());
+        headers.setContentType(MediaType.parseMediaType(document.contentType()));
+        headers.setContentDispositionFormData("attachment", document.name());
         return ResponseEntity.ok()
                 .headers(headers)
-                .body(document.getContent());
+                .body(document.content());
     }
 }

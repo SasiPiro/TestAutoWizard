@@ -35,7 +35,8 @@ public class Vehicle {
     private Integer registrationYear;
 
     @Column(nullable = false)
-    private String fuel; // BENZINA, DIESEL, ELETTRICO, GPL, METANO, IBRIDO
+    @Enumerated(EnumType.STRING)
+    private FuelType fuel;
 
     @Column(name = "avg_km_per_year")
     private Long avgKmPerYear;
