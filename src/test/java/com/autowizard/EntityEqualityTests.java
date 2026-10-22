@@ -1,8 +1,8 @@
 package com.autowizard;
 
-import com.autowizard.model.MaintenanceTask;
-import com.autowizard.model.Vehicle;
-import com.autowizard.service.ReminderService;
+import com.autowizard.maintenance.MaintenanceTask;
+import com.autowizard.reminder.internal.ReminderService;
+import com.autowizard.vehicle.Vehicle;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.Hibernate;

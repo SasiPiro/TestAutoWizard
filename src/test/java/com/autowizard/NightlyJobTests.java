@@ -1,7 +1,7 @@
 package com.autowizard;
 
-import com.autowizard.service.NightlyMaintenanceJob;
-import com.autowizard.service.TimeService;
+import com.autowizard.reminder.internal.NightlyMaintenanceJob;
+import com.autowizard.shared.TimeService;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

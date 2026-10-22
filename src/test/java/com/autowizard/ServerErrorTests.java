@@ -1,6 +1,6 @@
 package com.autowizard;
 
-import com.autowizard.service.AIService;
+import com.autowizard.ai.internal.AIService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
