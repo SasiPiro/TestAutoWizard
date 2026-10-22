@@ -8,8 +8,6 @@ import lombok.ToString;
 import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Set;
 
 /**
  * A vehicle is never deleted from the database: deleting it sets {@code deletedAt}, so its
@@ -64,12 +62,6 @@ public class Vehicle {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id", nullable = false)
     private User owner;
-
-    @OneToMany(mappedBy = "vehicle", cascade = CascadeType.ALL)
-    private Set<Document> documents = new HashSet<>();
-
-    @OneToMany(mappedBy = "vehicle", cascade = CascadeType.ALL)
-    private Set<MaintenanceTask> maintenanceTasks = new HashSet<>();
 
     /** A mileage typed by the user: it can only grow. */
     public void updateMileage(long newMileage) {

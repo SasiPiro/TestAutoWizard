@@ -6,8 +6,6 @@ import lombok.Setter;
 import lombok.ToString;
 
 import java.time.LocalDate;
-import java.util.HashSet;
-import java.util.Set;
 
 @Getter
 @Setter
@@ -33,15 +31,6 @@ public class User {
 
     @Column(name = "birthdate")
     private LocalDate birthDate;
-
-    @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL)
-    private Set<Vehicle> vehicles = new HashSet<>();
-
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
-    private Set<Document> documents = new HashSet<>();
-
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
-    private Set<Reminder> reminders = new HashSet<>();
 
     /**
      * Equal when the other object is the same row: same class (a Hibernate proxy is a
