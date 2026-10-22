@@ -30,9 +30,9 @@ public class Document {
     @Column(nullable = false)
     private String contentType;
 
-    @Lob
-    @Basic(fetch = FetchType.LAZY)
-    @Column(nullable = false, columnDefinition = "LONGBLOB")
+    // bytea. Not lazy: @Basic(fetch = LAZY) is ignored without bytecode enhancement, so the
+    // queries that must not read the file select only the metadata (DocumentRepository).
+    @Column(nullable = false)
     private byte[] content;
 
     private LocalDateTime uploadDate;

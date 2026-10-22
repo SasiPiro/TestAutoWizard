@@ -28,14 +28,11 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final List<String> allowedOrigins;
-    private final boolean h2ConsoleEnabled;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthFilter,
-                          @Value("${app.cors.allowed-origins:}") List<String> allowedOrigins,
-                          @Value("${spring.h2.console.enabled:false}") boolean h2ConsoleEnabled) {
+                          @Value("${app.cors.allowed-origins:}") List<String> allowedOrigins) {
         this.jwtAuthFilter = jwtAuthFilter;
         this.allowedOrigins = allowedOrigins.stream().filter(origin -> !origin.isBlank()).toList();
-        this.h2ConsoleEnabled = h2ConsoleEnabled;
     }
 
     @Bean
@@ -43,25 +40,17 @@ public class SecurityConfig {
         http
             .cors(Customizer.withDefaults())
             .csrf(csrf -> csrf.disable()) // stateless REST API with bearer tokens, no cookies
-            .authorizeHttpRequests(auth -> {
-                auth.requestMatchers("/api/auth/**").permitAll()
-                    .requestMatchers("/error").permitAll();
-                if (h2ConsoleEnabled) {
-                    // dev profile only (spring.h2.console.enabled): the console has its own login
-                    auth.requestMatchers("/h2-console/**").permitAll();
-                }
-                auth.anyRequest().authenticated();
-            })
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/error").permitAll()
+                .anyRequest().authenticated()
+            )
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
             // Missing or invalid token on a protected endpoint -> 401 (the default would be 403)
             .exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
-        if (h2ConsoleEnabled) {
-            // The console is made of frames; everywhere else frames stay denied
-            http.headers(headers -> headers.frameOptions(frameOptions -> frameOptions.sameOrigin()));
-        }
         return http.build();
     }
 

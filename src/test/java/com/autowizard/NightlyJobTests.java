@@ -9,6 +9,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mail.MailSendException;
@@ -38,6 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 // Automatic triggers off: the test runs the job itself, with a fixed clock
 @SpringBootTest(properties = {"app.scheduling.enabled=false", "app.mail.enabled=true"})
+@Import(TestcontainersConfiguration.class)
 @ActiveProfiles("dev")
 @AutoConfigureMockMvc
 class NightlyJobTests {
