@@ -1,7 +1,9 @@
 package com.autowizard.model;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
@@ -13,13 +15,16 @@ import java.util.Set;
  * maintenance history, documents and reminders stay consistent. Every query on vehicles
  * ignores deleted rows ({@link SQLRestriction}).
  */
-@Data
+@Getter
+@Setter
+@ToString(onlyExplicitlyIncluded = true)
 @Entity
 @Table(name = "vehicles")
 @SQLRestriction("deleted_at IS NULL")
 public class Vehicle {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @ToString.Include
     private Long id;
 
     @Column(nullable = false)
@@ -64,4 +69,22 @@ public class Vehicle {
 
     @OneToMany(mappedBy = "vehicle", cascade = CascadeType.ALL)
     private Set<MaintenanceTask> maintenanceTasks = new HashSet<>();
-} 
+
+    /**
+     * Equal when the other object is the same row: same class (a Hibernate proxy is a
+     * subclass) and the same non-null id, read through getId() so a proxy answers without
+     * being initialized. The hash code is constant, so it does not change when the id is
+     * assigned on insert and the entity stays findable in a HashSet.
+     */
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Vehicle other)) return false;
+        return id != null && id.equals(other.getId());
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
+}
