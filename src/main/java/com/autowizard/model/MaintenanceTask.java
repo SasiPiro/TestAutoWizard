@@ -43,7 +43,7 @@ public class MaintenanceTask {
 
     private Long completionMileage;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "vehicle_id", nullable = false)
     private Vehicle vehicle;
 

@@ -4,7 +4,6 @@ import com.autowizard.dto.VehicleRequest;
 import com.autowizard.dto.VehicleResponse;
 import com.autowizard.exception.BusinessRuleException;
 import com.autowizard.exception.ConflictException;
-import com.autowizard.exception.NotFoundException;
 import com.autowizard.model.Vehicle;
 import com.autowizard.model.User;
 import com.autowizard.repository.VehicleRepository;
@@ -35,8 +34,7 @@ public class VehicleService {
             throw new ConflictException("A vehicle with this VIN is already registered");
         }
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("User not found"));
+        User user = userRepository.getReferenceById(userId);
 
         Vehicle vehicle = new Vehicle();
         vehicle.setType(request.type());

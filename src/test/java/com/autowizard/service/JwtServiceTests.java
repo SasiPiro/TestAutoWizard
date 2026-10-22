@@ -35,9 +35,12 @@ class JwtServiceTests {
     @Test
     void issuedTokensVerifyAndTamperedOnesDoNot() {
         JwtService jwt = new JwtService(STRONG, 60_000);
-        String token = jwt.generateToken("someone@test.it");
+        String token = jwt.generateToken(42L, "someone@test.it");
 
-        assertThat(jwt.parse(token)).hasValueSatisfying(c -> assertThat(c.getSubject()).isEqualTo("someone@test.it"));
+        assertThat(jwt.parse(token)).hasValueSatisfying(c -> {
+            assertThat(c.getSubject()).isEqualTo("someone@test.it");
+            assertThat(JwtService.userIdOf(c)).contains(42L);
+        });
         assertThat(jwt.parse(token.substring(0, token.length() - 2) + "xx")).isEmpty();
         assertThat(new JwtService("another-strong-secret-of-more-than-32-bytes", 60_000).parse(token)).isEmpty();
     }
@@ -45,6 +48,6 @@ class JwtServiceTests {
     @Test
     void expiredTokensDoNotVerify() {
         JwtService jwt = new JwtService(STRONG, -1_000);
-        assertThat(jwt.parse(jwt.generateToken("someone@test.it"))).isEmpty();
+        assertThat(jwt.parse(jwt.generateToken(42L, "someone@test.it"))).isEmpty();
     }
 }

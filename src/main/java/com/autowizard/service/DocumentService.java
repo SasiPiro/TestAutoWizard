@@ -33,8 +33,7 @@ public class DocumentService {
         byte[] content = readContent(file);
         String contentType = DocumentFiles.detectContentType(content);
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("User not found"));
+        User user = userRepository.getReferenceById(userId);
 
         Document document = new Document();
         document.setName(DocumentFiles.safeName(file.getOriginalFilename()));

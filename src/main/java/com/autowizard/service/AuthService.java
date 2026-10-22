@@ -2,6 +2,7 @@ package com.autowizard.service;
 
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,7 @@ import com.autowizard.dto.RegisterRequest;
 import com.autowizard.exception.ConflictException;
 import com.autowizard.model.User;
 import com.autowizard.repository.UserRepository;
+import com.autowizard.security.UserPrincipal;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,7 +45,7 @@ public class AuthService {
         userRepository.save(user);
         log.info("[AUTH_REGISTER] outcome=success email={} userId={}", user.getEmail(), user.getId());
 
-        String token = jwtService.generateToken(user.getEmail());
+        String token = jwtService.generateToken(user.getId(), user.getEmail());
         return new AuthResponse(token);
     }
 
@@ -53,8 +55,9 @@ public class AuthService {
      * transaction: BCrypt is slow on purpose and would hold a connection meanwhile.
      */
     public AuthResponse login(LoginRequest request) {
+        Authentication authentication;
         try {
-            authenticationManager.authenticate(
+            authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.email(), request.password()));
         } catch (AuthenticationException e) {
             // Logged here because only here the attempted email is known; the exception
@@ -63,8 +66,9 @@ public class AuthService {
             throw e;
         }
 
-        String token = jwtService.generateToken(request.email());
-        log.info("[AUTH_LOGIN] outcome=success email={}", request.email());
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        String token = jwtService.generateToken(principal.getId(), principal.getEmail());
+        log.info("[AUTH_LOGIN] outcome=success email={} userId={}", principal.getEmail(), principal.getId());
         return new AuthResponse(token);
     }
 }

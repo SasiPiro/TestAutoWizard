@@ -42,6 +42,8 @@ public class JwtService {
     static final Set<String> COMPROMISED_SECRET_SHA256 = Set.of(
             "3354cfcf65c7b2e6840ea6f880aede239750cb1d063950c4e8fd9fbf9ec73a32");
 
+    static final String USER_ID_CLAIM = "userId";
+
     private final Key signingKey;
     private final long jwtExpiration;
 
@@ -68,14 +70,14 @@ public class JwtService {
         this.jwtExpiration = jwtExpiration;
     }
 
-    public String generateToken(String email) {
-        return generateToken(Map.of(), email);
-    }
-
-    public String generateToken(Map<String, Object> extraClaims, String email) {
+    /**
+     * The token carries the user id as well as the email: the filter authenticates a request
+     * from the verified claims alone, without loading the user from the database.
+     */
+    public String generateToken(Long userId, String email) {
         long now = System.currentTimeMillis();
         return Jwts.builder()
-                .setClaims(extraClaims)
+                .setClaims(Map.of(USER_ID_CLAIM, userId))
                 .setSubject(email)
                 .setIssuedAt(new Date(now))
                 .setExpiration(new Date(now + jwtExpiration))
@@ -97,6 +99,12 @@ public class JwtService {
         } catch (JwtException | IllegalArgumentException e) {
             return Optional.empty();
         }
+    }
+
+    /** The user id of a verified token, or empty for a token issued without it. */
+    public static Optional<Long> userIdOf(Claims claims) {
+        Object userId = claims.get(USER_ID_CLAIM);
+        return userId instanceof Number number ? Optional.of(number.longValue()) : Optional.empty();
     }
 
     static String sha256(byte[] value) {
