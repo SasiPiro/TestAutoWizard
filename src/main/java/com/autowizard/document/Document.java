@@ -38,7 +38,7 @@ public class Document {
     private LocalDateTime uploadDate;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "vehicle_id")
+    @JoinColumn(name = "vehicle_id", nullable = false)
     private Vehicle vehicle;
 
     @ManyToOne(fetch = FetchType.LAZY)
