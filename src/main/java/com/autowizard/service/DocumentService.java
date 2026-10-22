@@ -18,7 +18,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -31,48 +30,47 @@ public class DocumentService {
     @Transactional
     public DocumentResponse uploadDocument(MultipartFile file, Document.DocumentType type, Long vehicleId, Long userId) {
         Vehicle vehicle = vehicleAccess.requireOwned(vehicleId, userId);
+        byte[] content = readContent(file);
+        String contentType = DocumentFiles.detectContentType(content);
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("User not found"));
 
         Document document = new Document();
-        document.setName(file.getOriginalFilename());
+        document.setName(DocumentFiles.safeName(file.getOriginalFilename()));
         document.setType(type);
-        document.setContent(readContent(file));
-        document.setContentType(file.getContentType());
+        document.setContent(content);
+        document.setContentType(contentType);
         document.setVehicle(vehicle);
         document.setUploadDate(LocalDateTime.now());
         document.setUser(user);
 
         Document saved = documentRepository.save(document);
         log.info("[DOCUMENT_UPLOAD] outcome=success documentId={} vehicleId={} type={} contentType={} size={}",
-                saved.getId(), vehicleId, type, saved.getContentType(), file.getSize());
+                saved.getId(), vehicleId, type, contentType, content.length);
         return toResponse(saved);
     }
 
     @Transactional(readOnly = true)
     public DocumentContent getDocument(Long id, Long userId) {
-        Document document = documentRepository.findByIdAndVehicleOwnerId(id, userId)
+        return documentRepository.findContentByIdAndOwnerId(id, userId)
                 .orElseThrow(() -> new NotFoundException("Document not found"));
-
-        return toContent(document);
     }
 
+    /** Metadata only: the file contents are not read. */
     @Transactional(readOnly = true)
     public List<DocumentResponse> getDocumentsByVehicleId(Long vehicleId, Long userId) {
         vehicleAccess.requireOwned(vehicleId, userId);
-
-        return documentRepository.findByVehicleId(vehicleId).stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+        return documentRepository.findSummariesByVehicleId(vehicleId);
     }
 
     @Transactional
     public void deleteDocument(Long id, Long userId) {
-        Document document = documentRepository.findByIdAndVehicleOwnerId(id, userId)
-                .orElseThrow(() -> new NotFoundException("Document not found"));
-
-        documentRepository.delete(document);
+        // Checked and deleted without loading the entity, which would load the file
+        if (!documentRepository.existsByIdAndVehicleOwnerId(id, userId)) {
+            throw new NotFoundException("Document not found");
+        }
+        documentRepository.deleteMetadataAndContentById(id);
         log.info("[DOCUMENT_DELETE] outcome=success documentId={}", id);
     }
 
@@ -88,9 +86,5 @@ public class DocumentService {
     private DocumentResponse toResponse(Document document) {
         return new DocumentResponse(document.getId(), document.getName(), document.getType(),
                 document.getContentType(), document.getUploadDate(), document.getVehicle().getId());
-    }
-
-    private DocumentContent toContent(Document document) {
-        return new DocumentContent(document.getName(), document.getContentType(), document.getContent());
     }
 }
