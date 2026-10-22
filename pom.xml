@@ -19,7 +19,21 @@
     
     <properties>
         <java.version>17</java.version>
+        <!-- 1.1.x is the Spring Modulith line built on Spring Boot 3.2 -->
+        <spring-modulith.version>1.1.12</spring-modulith.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.modulith</groupId>
+                <artifactId>spring-modulith-bom</artifactId>
+                <version>${spring-modulith.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
     
     <dependencies>
         <!-- Spring Boot Starters -->
@@ -70,6 +84,21 @@
             <scope>runtime</scope>
         </dependency>
         
+        <!-- Module boundaries verified by a test (ModularityTests) -->
+        <dependency>
+            <groupId>org.springframework.modulith</groupId>
+            <artifactId>spring-modulith-starter-core</artifactId>
+            <exclusions>
+                <!-- Moments (time-passing events) is not used, and its auto-configuration
+                     declares @EnableScheduling: it would start the nightly job even with
+                     app.scheduling.enabled=false -->
+                <exclusion>
+                    <groupId>org.springframework.modulith</groupId>
+                    <artifactId>spring-modulith-moments</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>
@@ -86,6 +115,11 @@
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.modulith</groupId>
+            <artifactId>spring-modulith-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
