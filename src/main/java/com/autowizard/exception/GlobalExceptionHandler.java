@@ -1,7 +1,9 @@
 package com.autowizard.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
+import com.autowizard.config.RequestIdFilter;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -48,7 +50,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     /**
      * Login failures. One generic message for unknown email and wrong password, so the
-     * endpoint cannot be used to find out which emails are registered.
+     * endpoint cannot be used to find out which emails are registered. Already logged
+     * with the attempted email by AuthService: no second line here.
      */
     @ExceptionHandler(AuthenticationException.class)
     public ProblemDetail handleAuthentication(AuthenticationException ex) {
@@ -125,5 +128,10 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static void addCommonProperties(ProblemDetail problemDetail) {
         problemDetail.setProperty("timestamp", Instant.now());
+        // The same id as in the response header and in every log line of this request
+        String requestId = MDC.get(RequestIdFilter.MDC_KEY);
+        if (requestId != null) {
+            problemDetail.setProperty("requestId", requestId);
+        }
     }
 }

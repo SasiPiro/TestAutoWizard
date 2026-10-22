@@ -28,7 +28,6 @@ public class VehicleService {
 
     @Transactional
     public VehicleResponse createVehicle(VehicleRequest request, Long userId) {
-        log.debug("Creating vehicle for user: {}", userId);
         if (vehicleRepository.existsByLicensePlate(request.licensePlate())) {
             throw new ConflictException("A vehicle with this license plate is already registered");
         }
@@ -51,12 +50,12 @@ public class VehicleService {
         vehicle.setOwner(user);
 
         Vehicle savedVehicle = vehicleRepository.save(vehicle);
+        log.info("[VEHICLE_CREATE] outcome=success vehicleId={} userId={}", savedVehicle.getId(), userId);
         return toResponse(savedVehicle);
     }
 
     @Transactional(readOnly = true)
     public List<VehicleResponse> getVehiclesByUserId(Long userId) {
-        log.debug("Fetching all vehicles for user: {}", userId);
         return vehicleRepository.findByOwnerId(userId).stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
@@ -64,7 +63,6 @@ public class VehicleService {
 
     @Transactional(readOnly = true)
     public VehicleResponse getVehicleById(Long id, Long userId) {
-        log.debug("Fetching vehicle {} for user: {}", id, userId);
         Vehicle vehicle = vehicleAccess.requireOwned(id, userId);
 
         return toResponse(vehicle);
@@ -72,24 +70,25 @@ public class VehicleService {
 
     @Transactional
     public void deleteVehicle(Long id, Long userId) {
-        log.debug("Deleting vehicle {} for user: {}", id, userId);
         Vehicle vehicle = vehicleAccess.requireOwned(id, userId);
 
         // Soft delete: tasks, documents and reminders keep pointing to an existing row
         vehicle.setDeletedAt(LocalDateTime.now());
+        log.info("[VEHICLE_DELETE] outcome=success vehicleId={} userId={}", id, userId);
     }
 
     @Transactional
     public VehicleResponse updateVehicleMileage(Long id, Long newMileage, Long userId) {
-        log.debug("Updating mileage for vehicle {} to {} for user: {}", id, newMileage, userId);
         Vehicle vehicle = vehicleAccess.requireOwned(id, userId);
 
         if (newMileage < vehicle.getMileage()) {
             throw new BusinessRuleException("New mileage cannot be less than current mileage");
         }
 
+        long previousMileage = vehicle.getMileage();
         vehicle.setMileage(newMileage);
         Vehicle updatedVehicle = vehicleRepository.save(vehicle);
+        log.info("[VEHICLE_MILEAGE] outcome=success vehicleId={} from={} to={}", id, previousMileage, newMileage);
         return toResponse(updatedVehicle);
     }
 

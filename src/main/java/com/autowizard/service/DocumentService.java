@@ -27,9 +27,9 @@ public class DocumentService {
     private final DocumentRepository documentRepository;
     private final VehicleAccess vehicleAccess;
     private final UserRepository userRepository;
+
     @Transactional
     public DocumentResponse uploadDocument(MultipartFile file, Document.DocumentType type, Long vehicleId, Long userId) {
-        log.debug("Uploading document for vehicle {} and user: {}", vehicleId, userId);
         Vehicle vehicle = vehicleAccess.requireOwned(vehicleId, userId);
 
         User user = userRepository.findById(userId)
@@ -44,12 +44,14 @@ public class DocumentService {
         document.setUploadDate(LocalDateTime.now());
         document.setUser(user);
 
-        return toResponse(documentRepository.save(document));
+        Document saved = documentRepository.save(document);
+        log.info("[DOCUMENT_UPLOAD] outcome=success documentId={} vehicleId={} type={} contentType={} size={}",
+                saved.getId(), vehicleId, type, saved.getContentType(), file.getSize());
+        return toResponse(saved);
     }
 
     @Transactional(readOnly = true)
     public DocumentContent getDocument(Long id, Long userId) {
-        log.debug("Fetching document {} for user: {}", id, userId);
         Document document = documentRepository.findByIdAndVehicleOwnerId(id, userId)
                 .orElseThrow(() -> new NotFoundException("Document not found"));
 
@@ -58,7 +60,6 @@ public class DocumentService {
 
     @Transactional(readOnly = true)
     public List<DocumentResponse> getDocumentsByVehicleId(Long vehicleId, Long userId) {
-        log.debug("Fetching documents for vehicle {} and user: {}", vehicleId, userId);
         vehicleAccess.requireOwned(vehicleId, userId);
 
         return documentRepository.findByVehicleId(vehicleId).stream()
@@ -68,11 +69,11 @@ public class DocumentService {
 
     @Transactional
     public void deleteDocument(Long id, Long userId) {
-        log.debug("Deleting document {} for user: {}", id, userId);
         Document document = documentRepository.findByIdAndVehicleOwnerId(id, userId)
                 .orElseThrow(() -> new NotFoundException("Document not found"));
 
         documentRepository.delete(document);
+        log.info("[DOCUMENT_DELETE] outcome=success documentId={}", id);
     }
 
     private static byte[] readContent(MultipartFile file) {

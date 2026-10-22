@@ -9,6 +9,7 @@ import com.autowizard.repository.MaintenanceTaskRepository;
 import com.autowizard.repository.ReminderRepository;
 import com.autowizard.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +19,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ReminderService {
@@ -31,6 +33,7 @@ public class ReminderService {
                 .orElseThrow(() -> new NotFoundException("Reminder not found"));
         reminder.setNotified(true);
         reminderRepository.save(reminder);
+        log.info("[REMINDER_NOTIFIED] reminderId={} userId={}", reminderId, userId);
     }
 
     @Transactional

@@ -22,7 +22,6 @@ public class MaintenanceTaskService {
 
     @Transactional
     public MaintenanceTaskResponse createTask(MaintenanceTaskRequest request, Long userId) {
-        log.debug("Creating maintenance task for user: {}", userId);
         Vehicle vehicle = vehicleAccess.requireOwned(request.vehicleId(), userId);
 
         MaintenanceTask task = new MaintenanceTask();
@@ -37,12 +36,12 @@ public class MaintenanceTaskService {
         task.setVehicle(vehicle);
 
         MaintenanceTask savedTask = maintenanceTaskRepository.save(task);
+        log.info("[TASK_CREATE] outcome=success taskId={} vehicleId={}", savedTask.getId(), vehicle.getId());
         return toResponse(savedTask);
     }
 
     @Transactional(readOnly = true)
     public List<MaintenanceTaskResponse> getTasksByVehicleId(Long vehicleId, Long userId) {
-        log.debug("Fetching tasks for vehicle {} and user: {}", vehicleId, userId);
         vehicleAccess.requireOwned(vehicleId, userId);
 
         return maintenanceTaskRepository.findByVehicleId(vehicleId).stream()
