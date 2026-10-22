@@ -4,7 +4,7 @@ A backend for vehicle owners: keep track of your vehicles, plan their maintenanc
 
 The distinctive part is where it is going: the documents users upload are meant to be **read by AI**, so that an insurance PDF or a photo of an invoice turns into expiry dates, mileage, costs and completed maintenance without typing them in.
 
-> **Status:** the REST API for users, vehicles, maintenance tasks, reminders and documents works on an in-memory H2 database, with JWT authentication, ownership checks on every resource, validated input, RFC 7807 errors and a request id in every log line. The AI endpoint returns a fixed mocked answer: document analysis is **planned** (a separate Python worker connected through Kafka). See [Planned next, and why](#planned-next-and-why).
+> **Status:** the REST API for users, vehicles, maintenance tasks, reminders and documents works on an in-memory H2 database, with JWT authentication, ownership checks on every resource, validated input, RFC 7807 errors and a request id in every log line. A nightly job marks overdue tasks and keeps one reminder per user and type, emailed when it changes. The code is a modular monolith whose module boundaries are verified by a test. The AI endpoint returns a fixed mocked answer: document analysis is **planned** (a separate Python worker connected through Kafka). See [Planned next, and why](#planned-next-and-why).
 
 ---
 
@@ -28,9 +28,10 @@ The distinctive part is where it is going: the documents users upload are meant 
 
 - **Accounts.** Registration and login with email and password; every other endpoint needs the returned JWT.
 - **Vehicles.** Each user manages their own vehicles (type, brand, model, plate, VIN, mileage, registration year, fuel) and updates the mileage, which can only grow. Deleting a vehicle hides it but keeps its history.
-- **Maintenance tasks.** Tasks per vehicle with a scheduled date and mileage, priority and estimated cost, listed by vehicle or by user and by status (pending, overdue, completed).
-- **Reminders.** Reminders that group a user's pending or overdue tasks.
-- **Documents.** Upload, list, download and delete files attached to a vehicle, typed as registration, insurance, road tax, maintenance invoice or past maintenance booklet.
+- **Maintenance tasks.** Tasks per vehicle with a scheduled date and mileage, priority and estimated cost, listed by vehicle or by user and by status (pending, overdue, completed). Completing a task records the actual cost and mileage and moves the vehicle's odometer forward.
+- **Overdue detection.** Every night, tasks past their date or mileage become overdue.
+- **Reminders.** One open reminder per user for overdue tasks and one for tasks due in the next 7 days, kept up to date by the nightly job and by task completions, and emailed when they change.
+- **Documents.** Upload, list, download and delete PDF, JPEG or PNG files attached to a vehicle, typed as registration, insurance, road tax, maintenance invoice or past maintenance booklet.
 - **AI (mocked).** `POST /api/ai/query` answers with a fixed string: a placeholder for the document analysis described in [Planned next](#planned-next-and-why).
 
 ## Design decisions worth reading
@@ -42,10 +43,18 @@ The distinctive part is where it is going: the documents users upload are meant 
 | Credentials in configuration files end up in the repository | Secrets (JWT, mail) are read from environment variables only | `application.properties` |
 | Some task listings by vehicle never checked who owns the vehicle | One place checks ownership, by loading the vehicle by id **and** owner; every vehicle-scoped operation goes through it. Someone else's vehicle, document or reminder is 404, exactly like a missing one, so ids cannot be probed | `VehicleAccess` |
 | Wrong passwords and duplicate emails were 500s with messages that revealed which emails exist; "not found" and "not yours" were 400s | Exceptions by meaning (`NotFoundException` 404, `ConflictException` 409, `BusinessRuleException` 400) and RFC 7807 problem details; login through the `AuthenticationManager` with one generic 401; a 500 never carries the exception message | `GlobalExceptionHandler`, `AuthService` |
-| An empty email and password created an account; a vehicle without its fields became a database error | Request records with Bean Validation, separate from response records, so clients cannot set ids, status or owner; 400 with one message per field, always in English | `dto/*Request` |
+| An empty email and password created an account; a vehicle without its fields became a database error | Request records with Bean Validation, separate from response records, so clients cannot set ids, status or owner; 400 with one message per field, always in English | `*Request` records |
 | A vehicle with tasks referenced by reminders could not be deleted, and deleting in cascade would lose its history | Soft delete (`deleted_at`) with `@SQLRestriction`: the vehicle disappears from every query, its tasks, documents and reminders still point to an existing row | `Vehicle` |
 | The H2 console and permissive CORS were on in every environment | Both only where configured: the console in the `dev` profile, CORS origins from `CORS_ALLOWED_ORIGINS` (none by default) | `SecurityConfig` |
 | Every handled error was logged at ERROR and the lines of one request could not be found together | `[EVENT] key=value` lines, 4xx at INFO, failed logins at WARN, 5xx at ERROR once; a request id (`X-Request-Id`, validated against log injection) in every line, in the response and in error bodies | `RequestIdFilter`, services |
+| Generated `equals`/`hashCode` walked vehicle → owner → collections: generating reminders crashed as soon as a user had a task | Entities equal by id (proxy-safe, constant hash code), `toString` without associations, one security representation of a user | entities, `EntityEqualityTests` |
+| Listing documents loaded every file into memory (`@Basic(fetch = LAZY)` is ignored without bytecode enhancement) | The list is a projection of the metadata; the download selects only the content; the stored type is detected from the file signature (PDF, JPEG, PNG), never taken from the client | `DocumentRepository`, `DocumentFiles` |
+| Every request loaded the user, and eager associations loaded owners and vehicles again | The user id travels in the signed token; every association is lazy and fetched explicitly; no open session in view. A listing is one query, proved by capturing the SQL | `JwtAuthenticationFilter`, `QueryCountTests` |
+| Costs as `Double`; `now()` called everywhere | `BigDecimal(10,2)`; one injected `TimeService`, replaced by a fixed clock in tests | `MaintenanceTask`, `TimeService` |
+| Nothing ever marked a task as overdue | A nightly job with **one** `UPDATE` for all users (date passed or mileage reached, active vehicles only) | `MaintenanceTaskRepository.markOverdue` |
+| Generating reminders twice created two reminders | Reminders come from the job: one open reminder per user and type, updated when its tasks change, never repeated for the same tasks; emails only for created or changed reminders, sent after the commit | `ReminderService`, `ReminderMailer` |
+| Code organized by technical layer, with nothing preventing any class from using any other | Package by feature with an API package and an `internal` package per module, verified by Spring Modulith; modules react to each other through in-process events stored in the event publication registry (`MaintenanceTaskCompleted` → reminders) | `ModularityTests`, `CompletedTaskReminders` |
+| Two completions in quick succession updated the same reminder from two listeners at once | The listener reads the user's open reminders with a pessimistic lock (`SELECT ... FOR UPDATE`) | `ReminderRepository` |
 
 ## Architecture
 
@@ -56,11 +65,26 @@ graph LR
     API -.->|"mocked"| AI["AI endpoint"]
 ```
 
-One Spring Boot application with controllers, services and Spring Data JPA repositories. Documents are stored as binary columns in the database.
+One Spring Boot application, organized as modules. Each module exposes a small API in its root package and keeps everything else in `internal`; arrows are allowed dependencies, checked by `ModularityTests`:
+
+```mermaid
+graph TD
+    reminder --> maintenance
+    reminder --> vehicle
+    maintenance --> vehicle
+    document --> vehicle
+    vehicle --> identity
+    maintenance --> identity
+    document --> identity
+    reminder --> identity
+    maintenance -. "MaintenanceTaskCompleted (event)" .-> reminder
+```
+
+Every module also uses `shared` (exceptions by meaning, `TimeService`, the request id). `ai` holds the mocked endpoint. Documents are stored as binary columns in the database.
 
 ## Why this architecture
 
-**The Java backend is a monolith on purpose.** One small team, one domain (a user, their vehicles and everything attached to them), and operations that must be consistent: completing a maintenance task updates the vehicle mileage and the user's reminders in the same transaction. Splitting this into services would add network calls and distributed failure modes without solving any problem the application has.
+**The Java backend is a monolith on purpose.** One small team, one domain (a user, their vehicles and everything attached to them), and operations that must be consistent: completing a maintenance task updates the vehicle mileage in the same transaction, and the reminders react to it through an in-process event. Splitting this into services would add network calls and distributed failure modes without solving any problem the application has.
 
 **The AI part will be a separate service, connected through a message broker.** Reading a document is a different kind of work: it takes seconds, not milliseconds; it is best done in Python, where the PDF, OCR and LLM tooling lives; and it must not lose an upload when the worker is down or being redeployed. A broker (Kafka) between the backend and a Python worker gives exactly that: the upload returns immediately, the analysis happens in the background and is retried, and the two runtimes share only the event schema. This is planned, not built yet.
 
@@ -70,6 +94,7 @@ One Spring Boot application with controllers, services and Spring Data JPA repos
 |---|---|
 | Language and framework | Java 17, Spring Boot 3.2 |
 | Persistence | Spring Data JPA (Hibernate), H2 in memory |
+| Modules | Spring Modulith 1.1 (boundary verification, event publication registry) |
 | Security | Spring Security, JWT (jjwt 0.11), BCrypt |
 | Build | Maven (wrapper included) |
 | Tests | JUnit 5, Spring Boot Test, MockMvc |
@@ -120,8 +145,9 @@ All endpoints except `/api/auth/**` require `Authorization: Bearer <token>`.
 | GET | `/api/maintenance-tasks/{pending,overdue,completed}/user` | The caller's tasks by status |
 | GET | `/api/maintenance-tasks/{pending,overdue,completed}/vehicle/{vehicleId}` | A vehicle's tasks by status |
 | GET | `/api/maintenance-tasks/user` | All the caller's tasks |
-| PUT | `/api/reminders/{id}/notify` | Mark a reminder as notified |
-| POST | `/api/reminders/generate/{pending,overdue}` | Build reminders from pending / overdue tasks |
+| PATCH | `/api/maintenance-tasks/{id}/complete` | Complete a task: `completionMileage`, optional `actualCost` and `completionDate` |
+| GET | `/api/reminders` | The caller's open reminders (created by the nightly job) |
+| PUT | `/api/reminders/{id}/notified` | Mark a reminder as notified |
 | POST | `/api/documents/upload` | Upload a file (`file`, `type`, `vehicleId`) |
 | GET | `/api/documents/vehicle/{vehicleId}` | List a vehicle's documents |
 | GET / DELETE | `/api/documents/{id}` | Download / delete a document |
@@ -134,7 +160,8 @@ All endpoints except `/api/auth/**` require `Authorization: Bearer <token>`.
 | 400 | Invalid input, unreadable body, wrong parameter type, broken business rule (e.g. a lower mileage) |
 | 401 | Missing or invalid token; failed login (same message for unknown email and wrong password) |
 | 404 | Unknown route, or a resource that does not exist **or belongs to another user** |
-| 409 | Email, plate or VIN already registered |
+| 409 | Email, plate or VIN already registered; task already completed |
+| 415 | Uploaded file is not a PDF, JPEG or PNG |
 | 500 | Unexpected failure; the body never contains the exception message, the log has the stack trace and the same request id |
 
 ## Testing
@@ -154,6 +181,15 @@ All endpoints except `/api/auth/**` require `Authorization: Bearer <token>`.
 | `VehicleDeletionTests` | A vehicle with tasks referenced by reminders and documents can be deleted, disappears from the API and leaves no dangling reference; its plate can be registered again |
 | `CorsTests`, `ProductionDefaultsTests` | CORS only from configured origins; without the `dev` profile no H2 console, no cross-origin access, frames denied |
 | `LoggingTests`, `RequestIdTests` | One `[EVENT]` line per event at the right level, no passwords or file names; the request id in header, error body and logs, unsafe incoming ids replaced |
+| `EntityEqualityTests` | Reminders can be generated for tasks in a set; an entity equals a proxy of itself; `toString` does not touch associations |
+| `DocumentTests` | Listing documents never selects their content; the stored type comes from the file, not the client; only PDF, JPEG and PNG; safe, encoded file names |
+| `QueryCountTests` | Listing vehicles or tasks is one SQL statement, whatever the number of rows |
+| `MoneyAndTimeTests` | Costs are exact decimals with at most two digits; timestamps come from the injected clock |
+| `MaintenanceRulesTests` | Completion rules and mileage rules, without Spring |
+| `TaskCompletionTests` | Completing a task updates the vehicle mileage; a task cannot be completed twice; ownership and validation |
+| `NightlyJobTests` | With a fixed clock: overdue by date or mileage, completed and deleted left alone; two runs create one reminder, which follows the tasks and is emailed once per change; a failing mail server loses nothing |
+| `TaskEventsTests` | A completed task leaves the open reminders through `MaintenanceTaskCompleted`; concurrent listeners on one reminder leave it consistent |
+| `ModularityTests` | No module uses another module's internals, no cycles; writes the module diagrams |
 | `AutoWizardApplicationTests` | The application context starts with the `dev` profile |
 
 ## Configuration
@@ -163,14 +199,15 @@ All endpoints except `/api/auth/**` require `Authorization: Bearer <token>`.
 | `JWT_SECRET` | yes (outside `dev`) | HMAC key for the tokens, at least 32 bytes. Generate one with `openssl rand -base64 48` |
 | `MAIL_HOST`, `MAIL_PORT` | no | SMTP server, default `smtp.gmail.com:587` |
 | `MAIL_USERNAME`, `MAIL_PASSWORD` | no | SMTP credentials |
+| `MAIL_ENABLED` | no | `true` to email reminders (default `false`) |
+| `MAIL_FROM` | no | Sender of the reminder emails, default `MAIL_USERNAME` |
 | `CORS_ALLOWED_ORIGINS` | no | Comma-separated browser origins allowed to call the API. Empty (default) = none |
+| `APP_TIME_ZONE` | no | Zone of the users, for local dates and the nightly job, default `Europe/Rome` |
 
 ## Planned next, and why
 
 | Step | Problem it solves |
 |---|---|
-| Entities with safe equality and explicit fetching | Generated `equals`/`hashCode` walk the object graph; every request loads the user, listings load related rows and file contents |
-| Overdue detection and idempotent reminders | Nothing marks a task as overdue; generating reminders twice creates duplicates |
 | PostgreSQL, schema migrations, Docker Compose | The database is in memory and the schema is generated by Hibernate |
 | Documents in object storage | Files in the database grow backups and fill the heap on reads |
 | AI document analysis through Kafka and a Python worker | Users type by hand what is already written in their documents |
