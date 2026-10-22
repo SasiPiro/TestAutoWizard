@@ -1,0 +1,27 @@
+# Local infrastructure for development: PostgreSQL for the dev profile.
+#   docker compose up -d
+#   ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+# POSTGRES_PORT changes the port on the host (default 5432), e.g. when a local PostgreSQL
+# already uses it; the dev profile reads the same variable. Object storage, Kafka and the AI
+# worker will be added here.
+#
+# The credentials are local-only, like everything in the dev profile: never reuse them.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: autowizard
+      POSTGRES_USER: autowizard
+      POSTGRES_PASSWORD: autowizard
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autowizard -d autowizard"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  db-data:
