@@ -56,6 +56,23 @@ public class ReminderService {
         log.info("[REMINDER_NOTIFIED] reminderId={} userId={}", reminderId, userId);
     }
 
+    /** Removes a completed task from the user's open reminders; a reminder left empty is deleted. */
+    @Transactional
+    public void forgetCompletedTask(Long taskId, Long userId) {
+        for (Reminder reminder : reminderRepository.findByUserIdAndNotifiedFalseOrderByNotificationDateDesc(userId)) {
+            if (!reminder.getTasks().removeIf(task -> task.getId().equals(taskId))) {
+                continue;
+            }
+            if (reminder.getTasks().isEmpty()) {
+                reminderRepository.delete(reminder);
+            } else {
+                reminder.setMessage(message(reminder.getType(), reminder.getTasks().size()));
+            }
+            log.info("[REMINDER_REFRESH] outcome=task_completed reminderId={} userId={} taskId={} remaining={}",
+                    reminder.getId(), userId, taskId, reminder.getTasks().size());
+        }
+    }
+
     /**
      * Brings every user's reminders in line with their tasks: overdue tasks, and pending
      * tasks due in the next {@code app.reminders.upcoming-days} days. Running it twice

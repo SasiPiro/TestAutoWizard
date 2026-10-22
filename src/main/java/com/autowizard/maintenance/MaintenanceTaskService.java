@@ -9,6 +9,7 @@ import com.autowizard.vehicle.Vehicle;
 import com.autowizard.vehicle.VehicleAccess;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +24,7 @@ public class MaintenanceTaskService {
     private final MaintenanceTaskRepository maintenanceTaskRepository;
     private final VehicleAccess vehicleAccess;
     private final TimeService timeService;
+    private final ApplicationEventPublisher events;
 
     @Transactional
     public MaintenanceTaskResponse createTask(MaintenanceTaskRequest request, Long userId) {
@@ -52,6 +54,7 @@ public class MaintenanceTaskService {
         LocalDateTime completionDate = request.completionDate() != null ? request.completionDate() : now;
 
         task.complete(request.actualCost(), request.completionMileage(), completionDate, now);
+        events.publishEvent(new MaintenanceTaskCompleted(taskId, task.getVehicle().getId(), userId));
         log.info("[TASK_COMPLETE] outcome=success taskId={} vehicleId={} completionMileage={}",
                 taskId, task.getVehicle().getId(), request.completionMileage());
         return toResponse(task);
