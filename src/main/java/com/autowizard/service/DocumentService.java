@@ -16,7 +16,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Slf4j
@@ -24,6 +23,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class DocumentService {
     private final DocumentRepository documentRepository;
+    private final TimeService timeService;
     private final VehicleAccess vehicleAccess;
     private final UserRepository userRepository;
 
@@ -41,7 +41,7 @@ public class DocumentService {
         document.setContent(content);
         document.setContentType(contentType);
         document.setVehicle(vehicle);
-        document.setUploadDate(LocalDateTime.now());
+        document.setUploadDate(timeService.now());
         document.setUser(user);
 
         Document saved = documentRepository.save(document);

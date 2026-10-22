@@ -2,6 +2,7 @@ package com.autowizard.dto;
 
 import com.autowizard.model.MaintenanceTask;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public record MaintenanceTaskResponse(
@@ -13,8 +14,8 @@ public record MaintenanceTaskResponse(
         MaintenanceTask.TaskPriority priority,
         LocalDateTime completionDate,
         String notes,
-        Double estimatedCost,
-        Double actualCost,
+        BigDecimal estimatedCost,
+        BigDecimal actualCost,
         Long scheduledMileage,
         Long completionMileage,
         Long vehicleId) {

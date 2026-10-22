@@ -13,7 +13,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -24,6 +23,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ReminderService {
     private final ReminderRepository reminderRepository;
+    private final TimeService timeService;
     private final MaintenanceTaskRepository maintenanceTaskRepository;
     private final UserRepository userRepository;
 
@@ -49,7 +49,7 @@ public class ReminderService {
             Reminder reminder = new Reminder();
             reminder.setTitle("Manutenzioni Pendenti");
             reminder.setMessage("Hai " + pendingTasks.size() + " manutenzioni da eseguire");
-            reminder.setNotificationDate(LocalDateTime.now());
+            reminder.setNotificationDate(timeService.now());
             reminder.setType(Reminder.ReminderType.PENDING_TASKS);
             reminder.setTasks(new HashSet<>(pendingTasks));
             reminder.setNotified(false);
@@ -76,7 +76,7 @@ public class ReminderService {
             Reminder reminder = new Reminder();
             reminder.setTitle("Manutenzioni Scadute");
             reminder.setMessage("Hai " + overdueTasks.size() + " manutenzioni che non hai eseguito nei tempi consigliati");
-            reminder.setNotificationDate(LocalDateTime.now());
+            reminder.setNotificationDate(timeService.now());
             reminder.setType(Reminder.ReminderType.OVERDUE_TASKS);
             reminder.setTasks(new HashSet<>(overdueTasks));
             reminder.setNotified(false);
