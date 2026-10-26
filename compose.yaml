@@ -1,8 +1,8 @@
-# Local infrastructure for development: PostgreSQL for the dev profile.
+# Local infrastructure for development: PostgreSQL and the object store for the dev profile.
 #   docker compose up -d
 #   ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
-# POSTGRES_PORT changes the port on the host (default 5432), e.g. when a local PostgreSQL
-# already uses it; the dev profile reads the same variable. Object storage, Kafka and the AI
+# POSTGRES_PORT and STORAGE_PORT change the ports on the host (defaults 5432 and 8333), e.g. when
+# a local PostgreSQL already uses 5432; the dev profile reads the same variables. Kafka and the AI
 # worker will be added here.
 #
 # The credentials are local-only, like everything in the dev profile: never reuse them.
@@ -23,5 +23,20 @@ services:
       timeout: 3s
       retries: 10
 
+  # Document files. SeaweedFS speaks the S3 API, as Amazon S3 does in the cloud: the application
+  # only needs another endpoint. "mini" runs every component in one process and creates the
+  # bucket; requests must be signed with these keys.
+  storage:
+    image: chrislusf/seaweedfs:4.45
+    command: ["mini", "-dir=/data", "-bucket=autowizard-documents"]
+    environment:
+      AWS_ACCESS_KEY_ID: autowizard
+      AWS_SECRET_ACCESS_KEY: autowizard-secret
+    ports:
+      - "${STORAGE_PORT:-8333}:8333"
+    volumes:
+      - storage-data:/data
+
 volumes:
   db-data:
+  storage-data:

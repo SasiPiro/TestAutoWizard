@@ -19,6 +19,8 @@ import java.util.Optional;
 final class DocumentFiles {
 
     static final int MAX_NAME_LENGTH = 255;
+    /** Bytes needed to recognize every accepted format: the longest signature, PNG's. */
+    static final int SIGNATURE_LENGTH = 8;
 
     private static final byte[] PDF = {'%', 'P', 'D', 'F', '-'};
     private static final byte[] PNG = {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n'};
@@ -27,7 +29,10 @@ final class DocumentFiles {
     private DocumentFiles() {
     }
 
-    /** The content type of an accepted file, detected from its content. */
+    /**
+     * The content type of an accepted file, detected from its first bytes (at least
+     * {@value #SIGNATURE_LENGTH}, or the whole file if shorter).
+     */
     static String detectContentType(byte[] content) {
         if (content.length == 0) {
             throw new BusinessRuleException("The file is empty");

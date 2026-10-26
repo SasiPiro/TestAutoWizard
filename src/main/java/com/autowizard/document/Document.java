@@ -30,10 +30,13 @@ public class Document {
     @Column(nullable = false)
     private String contentType;
 
-    // bytea. Not lazy: @Basic(fetch = LAZY) is ignored without bytecode enhancement, so the
-    // queries that must not read the file select only the metadata (DocumentRepository).
+    // The file is in object storage (DocumentStorage) under this key; the table keeps only metadata
+    @Column(nullable = false, unique = true, updatable = false)
+    private String storageKey;
+
+    // Bytes, for the Content-Length of the download
     @Column(nullable = false)
-    private byte[] content;
+    private long size;
 
     private LocalDateTime uploadDate;
 

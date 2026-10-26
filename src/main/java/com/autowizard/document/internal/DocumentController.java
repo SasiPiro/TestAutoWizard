@@ -4,6 +4,7 @@ import com.autowizard.document.Document;
 import com.autowizard.identity.CurrentUser;
 import com.autowizard.identity.UserPrincipal;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -48,9 +49,10 @@ public class DocumentController {
      * The file as an attachment, with the content type detected at upload (never the one
      * the client declared) and the name encoded for any character set. Spring Security adds
      * {@code X-Content-Type-Options: nosniff}, so browsers do not guess another type.
+     * The content is copied from storage to the response as it arrives, and closed after.
      */
     @GetMapping("/{id}")
-    public ResponseEntity<byte[]> downloadDocument(
+    public ResponseEntity<InputStreamResource> downloadDocument(
             @PathVariable Long id,
             @CurrentUser UserPrincipal currentUser) {
         DocumentContent document = documentService.getDocument(id, currentUser.getId());
@@ -60,9 +62,9 @@ public class DocumentController {
         headers.setContentDisposition(ContentDisposition.attachment()
                 .filename(document.name(), StandardCharsets.UTF_8)
                 .build());
-        headers.setContentLength(document.content().length);
+        headers.setContentLength(document.size());
         return ResponseEntity.ok()
                 .headers(headers)
-                .body(document.content());
+                .body(new InputStreamResource(document.content()));
     }
 }

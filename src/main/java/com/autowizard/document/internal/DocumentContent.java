@@ -1,5 +1,10 @@
 package com.autowizard.document.internal;
 
-/** A file to download: returned as the response body, never serialized as JSON. */
-public record DocumentContent(String name, String contentType, byte[] content) {
+import java.io.InputStream;
+
+/**
+ * A file to download, streamed from object storage to the response: never held in memory and
+ * never serialized as JSON. Whoever writes the content closes it.
+ */
+public record DocumentContent(String name, String contentType, long size, InputStream content) {
 }

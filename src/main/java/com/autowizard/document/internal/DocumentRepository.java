@@ -8,11 +8,6 @@ import org.springframework.data.jpa.repository.Query;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Queries on documents select either the metadata or the content, never both by accident:
- * {@code @Basic(fetch = LAZY)} on the content is ignored without bytecode enhancement, so
- * loading a {@link Document} entity always loads the file.
- */
 public interface DocumentRepository extends JpaRepository<Document, Long> {
 
     @Query("""
@@ -22,15 +17,23 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
              ORDER BY d.uploadDate DESC, d.id DESC""")
     List<DocumentResponse> findSummariesByVehicleId(Long vehicleId);
 
+    /** What a download needs: the metadata and where the file is. */
     @Query("""
-            SELECT new com.autowizard.document.internal.DocumentContent(d.name, d.contentType, d.content)
+            SELECT new com.autowizard.document.internal.DocumentRepository$StoredFile(d.name, d.contentType, d.size, d.storageKey)
               FROM Document d JOIN d.vehicle v
              WHERE d.id = :id AND v.owner.id = :ownerId""")
-    Optional<DocumentContent> findContentByIdAndOwnerId(Long id, Long ownerId);
+    Optional<StoredFile> findFileByIdAndOwnerId(Long id, Long ownerId);
 
-    boolean existsByIdAndVehicleOwnerId(Long id, Long ownerId);
+    @Query("""
+            SELECT d.storageKey
+              FROM Document d JOIN d.vehicle v
+             WHERE d.id = :id AND v.owner.id = :ownerId""")
+    Optional<String> findStorageKeyByIdAndOwnerId(Long id, Long ownerId);
 
     @Modifying
     @Query("DELETE FROM Document d WHERE d.id = :id")
-    void deleteMetadataAndContentById(Long id);
+    void deleteMetadataById(Long id);
+
+    record StoredFile(String name, String contentType, long size, String storageKey) {
+    }
 }
