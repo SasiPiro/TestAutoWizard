@@ -4,7 +4,7 @@ A backend for vehicle owners: keep track of your vehicles, plan their maintenanc
 
 The distinctive part is where it is going: the documents users upload are meant to be **read by AI**, so that an insurance PDF or a photo of an invoice turns into expiry dates, mileage, costs and completed maintenance without typing them in.
 
-> **Status:** the REST API for users, vehicles, maintenance tasks, reminders and documents works on PostgreSQL with Flyway migrations (Java 21, Spring Boot 4), with JWT authentication, ownership checks on every resource, validated input, RFC 7807 errors and a request id in every log line. A nightly job marks overdue tasks and keeps one reminder per user and type, emailed when it changes. The code is a modular monolith whose module boundaries are verified by a test. The AI endpoint returns a fixed mocked answer: document analysis is **planned** (a separate Python worker connected through Kafka). See [Planned next, and why](#planned-next-and-why).
+> **Status:** the REST API for users, vehicles, maintenance tasks, reminders and documents works on PostgreSQL with Flyway migrations (Java 21, Spring Boot 4), with JWT authentication, ownership checks on every resource, validated input, RFC 7807 errors and a request id in every log line. A nightly job marks overdue tasks and keeps one reminder per user and type, emailed when it changes. Document files live in S3-compatible object storage, the database keeps only their metadata. The code is a modular monolith whose module boundaries are verified by a test. The AI endpoint returns a fixed mocked answer: document analysis is **planned** (a separate Python worker connected through Kafka). See [Planned next, and why](#planned-next-and-why).
 
 ---
 
@@ -31,7 +31,7 @@ The distinctive part is where it is going: the documents users upload are meant 
 - **Maintenance tasks.** Tasks per vehicle with a scheduled date and mileage, priority and estimated cost, listed by vehicle or by user and by status (pending, overdue, completed). Completing a task records the actual cost and mileage and moves the vehicle's odometer forward.
 - **Overdue detection.** Every night, tasks past their date or mileage become overdue.
 - **Reminders.** One open reminder per user for overdue tasks and one for tasks due in the next 7 days, kept up to date by the nightly job and by task completions, and emailed when they change.
-- **Documents.** Upload, list, download and delete PDF, JPEG or PNG files attached to a vehicle, typed as registration, insurance, road tax, maintenance invoice or past maintenance booklet.
+- **Documents.** Upload, list, download and delete PDF, JPEG or PNG files attached to a vehicle, typed as registration, insurance, road tax, maintenance invoice or past maintenance booklet. Files are kept in object storage (Amazon S3 or any S3-compatible store) and streamed on download.
 - **AI (mocked).** `POST /api/ai/query` answers with a fixed string: a placeholder for the document analysis described in [Planned next](#planned-next-and-why).
 
 ## Design decisions worth reading
@@ -48,7 +48,9 @@ The distinctive part is where it is going: the documents users upload are meant 
 | The H2 console and permissive CORS were on in every environment | Both only where configured: the console in the `dev` profile (gone with H2), CORS origins from `CORS_ALLOWED_ORIGINS` (none by default) | `SecurityConfig` |
 | Every handled error was logged at ERROR and the lines of one request could not be found together | `[EVENT] key=value` lines, 4xx at INFO, failed logins at WARN, 5xx at ERROR once; a request id (`X-Request-Id`, validated against log injection) in every line, in the response and in error bodies | `RequestIdFilter`, services |
 | Generated `equals`/`hashCode` walked vehicle → owner → collections: generating reminders crashed as soon as a user had a task | Entities equal by id (proxy-safe, constant hash code), `toString` without associations, one security representation of a user | entities, `EntityEqualityTests` |
-| Listing documents loaded every file into memory (`@Basic(fetch = LAZY)` is ignored without bytecode enhancement) | The list is a projection of the metadata; the download selects only the content; the stored type is detected from the file signature (PDF, JPEG, PNG), never taken from the client | `DocumentRepository`, `DocumentFiles` |
+| Listing documents loaded every file into memory (`@Basic(fetch = LAZY)` is ignored without bytecode enhancement) | The list is a projection of the metadata; the stored type is detected from the file signature (PDF, JPEG, PNG), never taken from the client | `DocumentRepository`, `DocumentFiles` |
+| Files in the database grow backups, fill the heap on reads, and would make the future AI worker read them through the backend | Files in S3-compatible object storage under random keys, the table keeps metadata and the key (claim check: the key travels, the file does not); downloads are streamed from the store with no transaction open; the existing files were moved by a Java Flyway migration | `DocumentStorage`, `V4__Move_document_files_to_object_storage` |
+| A database and an object store have no common transaction | Writes ordered so that a row never points to a missing file: the file before the row on upload (removed again if the insert fails), the row before the file on delete (after the commit). The worst case is an unreachable file, never a broken download | `DocumentService` |
 | Every request loaded the user, and eager associations loaded owners and vehicles again | The user id travels in the signed token; every association is lazy and fetched explicitly; no open session in view. A listing is one query, proved by capturing the SQL | `JwtAuthenticationFilter`, `QueryCountTests` |
 | Costs as `Double`; `now()` called everywhere | `BigDecimal(10,2)`; one injected `TimeService`, replaced by a fixed clock in tests | `MaintenanceTask`, `TimeService` |
 | Nothing ever marked a task as overdue | A nightly job with **one** `UPDATE` for all users (date passed or mileage reached, active vehicles only) | `MaintenanceTaskRepository.markOverdue` |
@@ -65,7 +67,8 @@ The distinctive part is where it is going: the documents users upload are meant 
 ```mermaid
 graph LR
     C["Client (mobile app / web)"] -->|"REST + JWT"| API["Spring Boot backend"]
-    API --> DB[("PostgreSQL")]
+    API -->|"metadata"| DB[("PostgreSQL")]
+    API -->|"files (S3 API)"| S3[("Object storage<br/>S3 / SeaweedFS")]
     API -.->|"mocked"| AI["AI endpoint"]
 ```
 
@@ -84,7 +87,7 @@ graph TD
     maintenance -. "MaintenanceTaskCompleted (event)" .-> reminder
 ```
 
-Every module also uses `shared` (exceptions by meaning, `TimeService`, the request id). `ai` holds the mocked endpoint. Documents are stored in a `bytea` column for now.
+Every module also uses `shared` (exceptions by meaning, `TimeService`, the request id). `ai` holds the mocked endpoint.
 
 ## Why this architecture
 
@@ -101,22 +104,23 @@ Every module also uses `shared` (exceptions by meaning, `TimeService`, the reque
 | Modules | Spring Modulith 2.0 (boundary verification, event publication registry) |
 | Security | Spring Security 7, JWT (jjwt 0.13), BCrypt |
 | Jobs | Spring scheduling with ShedLock |
+| Object storage | AWS SDK for Java 2 (S3 API): Amazon S3 in the cloud, SeaweedFS locally and in tests |
 | Build and local infrastructure | Maven (wrapper included), Docker Compose |
 | Tests | JUnit 5, Spring Boot Test, MockMvc, Testcontainers, Awaitility |
-| Planned | Object storage (S3 / MinIO), Kafka, Python AI worker |
+| Planned | Kafka, Python AI worker |
 
 ## Running locally
 
 **Prerequisites:** JDK 21 and Docker.
 
 ```bash
-docker compose up -d                                   # PostgreSQL on localhost:5432
+docker compose up -d                                   # PostgreSQL on :5432, object storage on :8333
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
-If port 5432 is taken (e.g. by a local PostgreSQL), set `POSTGRES_PORT=55432` for both commands. Without Compose, `./mvnw spring-boot:test-run -Dspring-boot.run.profiles=dev` starts the application with a throw-away PostgreSQL container.
+If a port is taken (e.g. 5432 by a local PostgreSQL), set `POSTGRES_PORT=55432` or `STORAGE_PORT` for both commands. Without Compose, `./mvnw spring-boot:test-run -Dspring-boot.run.profiles=dev` starts the application with throw-away PostgreSQL and object storage containers.
 
-The `dev` profile provides a local JWT secret and the local database credentials. Without it the application refuses to start until `JWT_SECRET` and the datasource are set (see [Configuration](#configuration)).
+The `dev` profile provides a local JWT secret and the local database and storage credentials. Without it the application refuses to start until `JWT_SECRET`, the datasource and `STORAGE_BUCKET` are set (see [Configuration](#configuration)).
 
 A quick tour with curl:
 
@@ -175,7 +179,7 @@ All endpoints except `/api/auth/**` require `Authorization: Bearer <token>`.
 ## Testing
 
 ```bash
-./mvnw clean verify      # needs Docker: the tests run on PostgreSQL containers
+./mvnw clean verify      # needs Docker: the tests run on PostgreSQL and object storage containers
 ```
 
 | Test class | What it proves |
@@ -190,7 +194,8 @@ All endpoints except `/api/auth/**` require `Authorization: Bearer <token>`.
 | `CorsTests`, `ProductionDefaultsTests` | CORS only from configured origins; without the `dev` profile no cross-origin access and frames denied |
 | `LoggingTests`, `RequestIdTests` | One `[EVENT]` line per event at the right level, no passwords or file names; the request id in header, error body and logs, unsafe incoming ids replaced |
 | `EntityEqualityTests` | Reminders can be generated for tasks in a set; an entity equals a proxy of itself; `toString` does not touch associations |
-| `DocumentTests` | Listing documents never selects their content; the stored type comes from the file, not the client; only PDF, JPEG and PNG; safe, encoded file names |
+| `DocumentTests` | No binary column left in the database; a file goes to object storage under a random key, comes back identical with its length and is removed with its document; a failed insert leaves no file behind; the stored type comes from the file, not the client; only PDF, JPEG and PNG; safe, encoded file names |
+| `DocumentMigrationTests` | A database as it was before migration 4, with a file in a column, ends with the file in object storage and the column gone |
 | `QueryCountTests` | Listing vehicles or tasks is one SQL statement, whatever the number of rows |
 | `MoneyAndTimeTests` | Costs are exact decimals with at most two digits; timestamps come from the injected clock |
 | `MaintenanceRulesTests` | Completion rules and mileage rules, without Spring |
@@ -215,12 +220,17 @@ All endpoints except `/api/auth/**` require `Authorization: Bearer <token>`.
 | `MAIL_FROM` | no | Sender of the reminder emails, default `MAIL_USERNAME` |
 | `CORS_ALLOWED_ORIGINS` | no | Comma-separated browser origins allowed to call the API. Empty (default) = none |
 | `APP_TIME_ZONE` | no | Zone of the users, for local dates and the nightly job, default `Europe/Rome` |
+| `STORAGE_BUCKET` | yes (outside `dev`) | Bucket of the document files |
+| `STORAGE_ENDPOINT` | no | URL of an S3-compatible store; empty (default) = Amazon S3 |
+| `STORAGE_REGION` | no | AWS region, default `eu-south-1` |
+| `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY` | no | Static credentials; empty = the default AWS credentials chain (environment, instance or pod role) |
+| `STORAGE_PATH_STYLE` | no | `true` for stores without per-bucket host names (most S3-compatible ones), default `false` |
+| `STORAGE_PORT` | no | Host port of the Compose object store and of the `dev` endpoint, default `8333` |
 
 ## Planned next, and why
 
 | Step | Problem it solves |
 |---|---|
-| Documents in object storage | Files in the database grow backups and fill the heap on reads |
 | AI document analysis through Kafka and a Python worker | Users type by hand what is already written in their documents |
 
 ## License
